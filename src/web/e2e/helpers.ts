@@ -1,7 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-export const PASSWORD = "Synthetic-Demo-2026!";
+// Local runs use the published dev password; hosted Demo runs pass their own via SERK_E2E_PASSWORD.
+export const PASSWORD = process.env.SERK_E2E_PASSWORD ?? "Synthetic-Demo-2026!";
 export const SHOTS = "../../docs/evidence/milestone-A/screenshots";
 
 export async function login(page: Page, username: string): Promise<void> {

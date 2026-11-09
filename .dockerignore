@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/node_modules/
+.git/
+.local/
+artifacts/
+docs/
+tests/
+examples/
+src/web/dist/
+src/web/test-results/
+src/web/playwright-report/
+src/backend/Serk.Clinic.Host/wwwroot/
+.env
+.env.*

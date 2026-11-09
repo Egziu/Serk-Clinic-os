@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoSeriousA11yViolations, login, SHOTS } from "./helpers";
+import { expectNoSeriousA11yViolations, login, PASSWORD, SHOTS } from "./helpers";
 
 test.describe.serial("Management: branding, colour, printers, analytics", () => {
   test("clinic admin customises colour, uploads logo and stamp, and classifies printers", async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe.serial("Management: branding, colour, printers, analytics", () => 
   test("clinician uploads own signature", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Username").fill("dr.hana");
-    await page.getByLabel("Password").fill("Synthetic-Demo-2026!");
+    await page.getByLabel("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.getByRole("button", { name: /Abay Family Clinic - Bole Branch/ }).click(); // two facilities: choose one
     await expect(page.getByText("Signed in as")).toBeVisible();

@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using Serk.Clinic.Analytics;
@@ -38,6 +39,16 @@ namespace Serk.Clinic.Host;
 public static class SerkHost
 {
     public const long MaxRequestBodyBytes = 1024 * 1024;
+
+    /// <summary>The published local-development demo password; refused in the hosted Demo environment.</summary>
+    private const string PublishedDevDemoPassword = "Synthetic-Demo-2026!";
+
+    /// <summary>
+    /// Environments that may hold ONLY synthetic data and may therefore seed demo users and provision the runtime login:
+    /// Development, Testing, and "Demo" (a hosted, internet-reachable synthetic test deployment). Never Production/Staging.
+    /// </summary>
+    public static bool IsSyntheticEnvironment(IHostEnvironment env) =>
+        env.IsDevelopment() || env.IsEnvironment("Testing") || env.IsEnvironment("Demo");
 
     /// <summary>Builds the app. Returns null when a one-shot CLI command (e.g. "migrate") was executed instead.</summary>
     public static async Task<WebApplication?> BuildAsync(string[] args, Action<WebApplicationBuilder>? configure = null)
@@ -129,12 +140,19 @@ public static class SerkHost
 
         if (app.Configuration.GetValue("Seed:Demo", false))
         {
-            if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+            if (!IsSyntheticEnvironment(app.Environment))
             {
-                throw new InvalidOperationException("Synthetic demo seeding is only allowed in Development/Testing.");
+                throw new InvalidOperationException("Synthetic demo seeding is only allowed in Development/Testing/Demo.");
             }
 
-            await DemoDataSeeder.SeedAsync(ownerConnection!, app.Configuration["Seed:DemoPassword"] ?? throw new InvalidOperationException("Seed:DemoPassword required."), CancellationToken.None);
+            var demoPassword = app.Configuration["Seed:DemoPassword"] ?? throw new InvalidOperationException("Seed:DemoPassword required.");
+            if (app.Environment.IsEnvironment("Demo") && (demoPassword.Length < 16 || demoPassword == PublishedDevDemoPassword))
+            {
+                // An internet-reachable demo must not use the password published in the repository.
+                throw new InvalidOperationException("The hosted Demo environment needs its own Seed:DemoPassword (at least 16 characters, not the published dev password).");
+            }
+
+            await DemoDataSeeder.SeedAsync(ownerConnection!, demoPassword, CancellationToken.None);
         }
 
         Configure(app);
@@ -154,9 +172,9 @@ public static class SerkHost
         var appLogin = app.Configuration["Database:EnsureAppLogin:Username"];
         if (!string.IsNullOrWhiteSpace(appLogin))
         {
-            if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+            if (!IsSyntheticEnvironment(app.Environment))
             {
-                throw new InvalidOperationException("Automatic app login provisioning is only allowed in Development/Testing.");
+                throw new InvalidOperationException("Automatic app login provisioning is only allowed in Development/Testing/Demo.");
             }
 
             await DevDatabaseBootstrap.EnsureAppLoginAsync(ownerConnection, appLogin, app.Configuration["Database:EnsureAppLogin:Password"]!, CancellationToken.None);
@@ -165,6 +183,16 @@ public static class SerkHost
 
     private static void Configure(WebApplication app)
     {
+        if (app.Configuration.GetValue("Proxy:TrustForwardedHeaders", false))
+        {
+            // Behind exactly one TLS-terminating platform proxy (e.g. Railway): take the client IP and scheme from the entry that
+            // proxy appended, so per-IP rate limits apply per client rather than to the proxy. Off by default.
+            var fwd = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto, ForwardLimit = 1 };
+            fwd.KnownIPNetworks.Clear();
+            fwd.KnownProxies.Clear();
+            app.UseForwardedHeaders(fwd);
+        }
+
         app.UseExceptionHandler(handler => handler.Run(async http =>
         {
             var feature = http.Features.Get<IExceptionHandlerFeature>();
