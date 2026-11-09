@@ -71,7 +71,11 @@ function isDuplicateReview(json: unknown): boolean {
 
 function toError(status: number, json: unknown): ApiError {
   const p = (typeof json === "object" && json !== null ? json : {}) as { code?: string; detail?: string; title?: string; errors?: Record<string, string[]> };
-  const message = p.detail ?? p.title ?? (status === 401 ? "Your session has ended. Please sign in again." : `Request failed (${status}).`);
+  const fallback =
+    status === 401 ? "Your session has ended. Please sign in again."
+    : status === 429 ? "Too many attempts in a short time. Please wait a minute and try again."
+    : `Request failed (${status}).`;
+  const message = p.detail ?? p.title ?? fallback;
   return new ApiError(status, p.code, message, json, p.errors);
 }
 

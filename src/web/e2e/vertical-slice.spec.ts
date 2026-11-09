@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { eatTimeSoon, expectNoSeriousA11yViolations, login, SHOTS } from "./helpers";
+import { bookFirstFreeSlot, expectNoSeriousA11yViolations, login, SHOTS } from "./helpers";
 
 // Synthetic, unique patient per run.
 const suffix = Date.now().toString(36).slice(-5);
@@ -22,11 +22,7 @@ test.describe.serial("Vertical slice: login → registration → appointment →
     await page.getByRole("button", { name: "Register patient" }).click();
     await expect(page.getByRole("status").filter({ hasText: "registered as MRN-" })).toBeVisible();
 
-    const slot = eatTimeSoon(10);
-    await page.getByLabel("Clinician").selectOption({ label: "Dr. Abebe Kassa (synthetic) — General Practice" });
-    await page.getByLabel("Date (Gregorian)", { exact: true }).fill(slot.date);
-    await page.getByLabel("Time (EAT, UTC+3)").fill(slot.time);
-    await page.getByRole("button", { name: "Book", exact: true }).click();
+    await bookFirstFreeSlot(page, "Dr. Abebe Kassa (synthetic) — General Practice", 10);
     await expect(page.getByText(/Booked .* with Dr. Abebe/)).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: given });

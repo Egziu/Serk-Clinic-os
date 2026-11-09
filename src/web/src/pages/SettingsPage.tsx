@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useRef, useEffect, useState, type FormEvent } from "react";
 import { api, uploadFile } from "../api/client";
 import { ErrorAlert, Field } from "../components/common";
 import { Icon } from "../components/icons";
@@ -151,15 +151,25 @@ export function AssetPanel({ kind, title, hint, asset, onUploaded, uploadUrl }: 
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const id = `upload-${kind}`;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!file) return;
+    const uploading = file;
     setBusy(true);
     setError(null);
+    setDone(null);
     try {
-      await uploadFile(uploadUrl ?? `/api/v1/facility/branding/${kind}`, file);
-      setFile(null);
+      await uploadFile(uploadUrl ?? `/api/v1/facility/branding/${kind}`, uploading);
+      // Clear only the file that was uploaded (a newer choice made meanwhile is kept).
+      setFile((current) => {
+        if (current !== uploading) return current;
+        if (inputRef.current) inputRef.current.value = "";
+        return null;
+      });
+      setDone(`${title} updated.`);
       onUploaded();
     } catch (err) {
       setError(err);
@@ -180,10 +190,11 @@ export function AssetPanel({ kind, title, hint, asset, onUploaded, uploadUrl }: 
         ) : <span className="muted">None uploaded.</span>}
       </div>
       <ErrorAlert error={error} />
+      {done && <p className="alert alert-info" role="status">{done}</p>}
       <form onSubmit={submit} className="btn-row">
         <label htmlFor={id} className="sr-only">Choose {title.toLowerCase()} image</label>
-        <input id={id} type="file" accept="image/png,image/jpeg" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <button className="btn btn-primary" type="submit" disabled={!file || busy}><Icon name="upload" /> Upload {title.toLowerCase()}</button>
+        <input ref={inputRef} id={id} type="file" accept="image/png,image/jpeg" disabled={busy} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setDone(null); }} />
+        <button className="btn btn-primary" type="submit" disabled={!file || busy}><Icon name="upload" /> {busy ? "Uploading…" : `Upload ${title.toLowerCase()}`}</button>
       </form>
       <p className="status-line">PNG (24/32-bit) or JPEG, 16–4096 px, max 512 KB. Files are checked for hidden content; uploads replace the previous image but never alter documents already issued.</p>
     </section>

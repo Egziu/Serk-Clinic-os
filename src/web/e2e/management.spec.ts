@@ -22,9 +22,11 @@ test.describe.serial("Management: branding, colour, printers, analytics", () => 
 
     await page.getByLabel("Choose clinic logo image").setInputFiles("e2e/fixtures/logo.png");
     await page.getByRole("button", { name: "Upload clinic logo" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Clinic logo updated." })).toBeVisible(); // wait for the upload itself
     await expect(page.getByRole("img", { name: "Current clinic logo" })).toBeVisible();
     await page.getByLabel("Choose official stamp image").setInputFiles("e2e/fixtures/stamp.png");
     await page.getByRole("button", { name: "Upload official stamp" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Official stamp updated." })).toBeVisible(); // wait for the upload itself
     await expect(page.getByRole("img", { name: "Current official stamp" })).toBeVisible();
 
     // A non-image renamed .png is rejected with a clear message.
@@ -99,6 +101,7 @@ test.describe.serial("Management: branding, colour, printers, analytics", () => 
     await page.getByRole("button", { name: "My signature" }).click();
     await page.getByLabel("Choose signature image image").setInputFiles("e2e/fixtures/signature.jpg");
     await page.getByRole("button", { name: "Upload signature image" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Signature image updated." })).toBeVisible();
     await expect(page.getByRole("img", { name: "Current signature image" })).toBeVisible();
     await expectNoSeriousA11yViolations(page, "signature");
   });

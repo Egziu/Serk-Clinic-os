@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { eatTimeSoon, expectNoSeriousA11yViolations, login, SHOTS } from "./helpers";
+import { bookFirstFreeSlot, expectNoSeriousA11yViolations, login, SHOTS } from "./helpers";
 
 const suffix = Date.now().toString(36).slice(-5);
 const given = `Dentpt${suffix}`;
@@ -17,11 +17,7 @@ test("dentist charts a surface finding by keyboard with wrong-tooth confirmation
   await r.getByLabel("Date of birth (Gregorian)").fill("1985-01-15");
   await r.getByRole("button", { name: "Register patient" }).click();
   await expect(r.getByRole("status").filter({ hasText: "registered as MRN-" })).toBeVisible();
-  const slot = eatTimeSoon(40);
-  await r.getByLabel("Clinician").selectOption({ label: "Dr. Liya Mekonnen (Dentist, synthetic) — Dentistry" });
-  await r.getByLabel("Date (Gregorian)", { exact: true }).fill(slot.date);
-  await r.getByLabel("Time (EAT, UTC+3)").fill(slot.time);
-  await r.getByRole("button", { name: "Book", exact: true }).click();
+  await bookFirstFreeSlot(r, "Dr. Liya Mekonnen (Dentist, synthetic) — Dentistry", 40);
   const row = r.getByRole("row").filter({ hasText: given });
   await row.getByRole("button", { name: /Check in/ }).click();
   await r.getByLabel(/I confirmed the patient's name/).check();

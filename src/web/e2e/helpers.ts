@@ -28,3 +28,23 @@ export function eatTimeSoon(minutesAhead: number): { date: string; time: string 
   const iso = t.toISOString();
   return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
 }
+
+/**
+ * Books the first free slot for a clinician, starting `minutesAhead` from now and stepping 15 minutes when the clinician is
+ * already booked (the app correctly refuses overlapping appointments). Keeps the suite re-runnable against a long-lived
+ * deployment whose database already contains earlier runs' appointments.
+ */
+export async function bookFirstFreeSlot(page: Page, clinicianLabel: string, minutesAhead: number): Promise<{ date: string; time: string }> {
+  await page.getByLabel("Clinician").selectOption({ label: clinicianLabel });
+  for (let i = 0; i < 24; i++) {
+    const slot = eatTimeSoon(minutesAhead + i * 15);
+    await page.getByLabel("Date (Gregorian)", { exact: true }).fill(slot.date);
+    await page.getByLabel("Time (EAT, UTC+3)").fill(slot.time);
+    const response = page.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/v1/appointments");
+    await page.getByRole("button", { name: "Book", exact: true }).click();
+    const status = (await response).status();
+    if (status === 201 || status === 200) return slot;
+    expect(status, "only a scheduling conflict may cause a retry").toBe(409);
+  }
+  throw new Error("No free slot found for " + clinicianLabel);
+}
