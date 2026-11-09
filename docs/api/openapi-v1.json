@@ -45,6 +45,36 @@
         }
       }
     },
+    "/api/v1/appointments/{id}/slip": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "paper",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/SlipPaper"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/verify/{reference}": {
       "get": {
         "tags": [
@@ -57,6 +87,66 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/signature": {
+      "get": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/branding-assets/{id}/content": {
+      "get": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -762,6 +852,190 @@
           }
         }
       }
+    },
+    "/api/v1/facility/settings": {
+      "get": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/facility/branding/{kind}": {
+      "post": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/facility/printers": {
+      "get": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrinterProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/facility/printers/{id}/deactivate": {
+      "post": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/overview": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/daily.csv": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -930,6 +1204,10 @@
         },
         "additionalProperties": false
       },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
       "LoginRequest": {
         "required": [
           "username",
@@ -984,8 +1262,50 @@
         "enum": [
           "A4",
           "A5",
+          "A3",
           null
         ]
+      },
+      "PrinterProfileRequest": {
+        "required": [
+          "name",
+          "paper",
+          "purpose",
+          "isDefault"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "paper": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaperSize"
+              }
+            ]
+          },
+          "purpose": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PrintPurpose"
+              }
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "PrintEventRequest": {
         "required": [
@@ -1001,6 +1321,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "PrintPurpose": {
+        "enum": [
+          "ClinicalDocuments",
+          "AppointmentSlips",
+          null
+        ]
       },
       "RecordFindingInput": {
         "required": [
@@ -1196,6 +1523,15 @@
         },
         "additionalProperties": false
       },
+      "SlipPaper": {
+        "enum": [
+          "Thermal80",
+          "Thermal58",
+          "A5",
+          "A4",
+          null
+        ]
+      },
       "ToothCondition": {
         "enum": [
           "Sound",
@@ -1218,6 +1554,39 @@
           "Buccal",
           "Lingual"
         ]
+      },
+      "UpdateSettingsRequest": {
+        "required": [
+          "accentColor",
+          "defaultClinicalPaper",
+          "autoPrepareDocuments"
+        ],
+        "type": "object",
+        "properties": {
+          "accentColor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaultClinicalPaper": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaperSize"
+              }
+            ]
+          },
+          "autoPrepareDocuments": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -1229,7 +1598,13 @@
       "name": "Directory"
     },
     {
+      "name": "Documents"
+    },
+    {
       "name": "Verification"
+    },
+    {
+      "name": "Facility configuration"
     },
     {
       "name": "Auth"
@@ -1244,10 +1619,10 @@
       "name": "Encounters"
     },
     {
-      "name": "Documents"
+      "name": "Dental"
     },
     {
-      "name": "Dental"
+      "name": "Analytics"
     }
   ]
 }

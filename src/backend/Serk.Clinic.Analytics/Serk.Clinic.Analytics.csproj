@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Reporting: aggregated, role-scoped analytics over published PHI-free fact views. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Serk.Clinic.SharedKernel\Serk.Clinic.SharedKernel.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Platform\Serk.Clinic.Platform.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Identity\Serk.Clinic.Identity.csproj" />
+  </ItemGroup>
+</Project>

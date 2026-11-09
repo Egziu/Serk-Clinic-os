@@ -24,4 +24,7 @@ public static class Capabilities
     public const string StaffAdmin = "staff.admin";
     public const string DentalChartRead = "dental.chart.read";
     public const string DentalChartWrite = "dental.chart.write";
+    public const string BrandingManage = "branding.manage";
+    public const string PrintersManage = "printers.manage";
+    public const string AnalyticsRead = "analytics.read";
 }

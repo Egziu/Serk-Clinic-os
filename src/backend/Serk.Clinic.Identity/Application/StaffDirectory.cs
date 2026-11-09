@@ -34,4 +34,7 @@ internal sealed class StaffDirectory(IdentityDbContext db, TimeProvider clock) :
 
     public async Task<bool> IsPractitionerActiveAtFacilityAsync(Guid tenantId, Guid facilityId, Guid practitionerId, CancellationToken ct) =>
         (await ListFacilityPractitionersAsync(tenantId, facilityId, ct)).Any(p => p.Id == practitionerId);
+
+    public async Task<IReadOnlyList<Guid>> ListTenantIdsAsync(CancellationToken ct) =>
+        await db.Tenants.AsNoTracking().OrderBy(t => t.Id).Select(t => t.Id).ToListAsync(ct);
 }

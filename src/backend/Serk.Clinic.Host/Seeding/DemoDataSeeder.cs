@@ -35,6 +35,8 @@ public static class DemoData
     public const string ReceptionB = "reception.b";
     public const string ClinicianB = "dr.b";
     public const string Support = "support.serk";
+    public const string Owner = "owner.a";
+    public const string ClinicAdminB = "admin.b";
 
     internal static readonly (string User, Guid Id, string Name)[] Users =
     [
@@ -48,6 +50,8 @@ public static class DemoData
         (ReceptionB, U(8), "Rahel Desta (Reception B, synthetic)"),
         (ClinicianB, U(9), "Dr. Samuel Worku (Tenant B, synthetic)"),
         (Support, U(10), "SERK Platform Support (synthetic)"),
+        (Owner, U(11), "Almaz Bekele (Owner, synthetic)"),
+        (ClinicAdminB, U(12), "Tewodros Ayele (Clinic admin B, synthetic)"),
     ];
 
     public static Guid UserId(string username) => Users.Single(u => u.User == username).Id;
@@ -100,6 +104,8 @@ public static class DemoDataSeeder
         await Affiliation(conn, tx, 8, DemoData.Dentist, DemoData.TenantA, DemoData.FacilityABole, ["Dentist"], ct);
         await Affiliation(conn, tx, 9, DemoData.ReceptionB, DemoData.TenantB, DemoData.FacilityBHawassa, ["Receptionist"], ct);
         await Affiliation(conn, tx, 10, DemoData.ClinicianB, DemoData.TenantB, DemoData.FacilityBHawassa, ["Clinician"], ct);
+        await Affiliation(conn, tx, 11, DemoData.Owner, DemoData.TenantA, DemoData.FacilityABole, ["Owner"], ct);
+        await Affiliation(conn, tx, 12, DemoData.ClinicAdminB, DemoData.TenantB, DemoData.FacilityBHawassa, ["ClinicAdmin"], ct);
         // DemoData.Support intentionally has NO affiliation: platform support has no routine PHI access.
 
         await Patient(conn, tx, DemoData.PatientSelam, DemoData.TenantA, DemoData.FacilityABole, "MRN-900001", "Selam", "Tesfaye", "Bekele", "Female", new DateOnly(1990, 3, 14), "+251911000001", now, ct);

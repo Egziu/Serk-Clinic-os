@@ -40,8 +40,16 @@ public sealed class AppointmentService(
     IPatientDirectory patients,
     IStaffDirectory staff,
     IEncounterLauncher encounters,
-    TimeProvider clock)
+    TimeProvider clock) : Serk.Clinic.Scheduling.Contracts.IAppointmentReader
 {
+    async Task<Serk.Clinic.Scheduling.Contracts.AppointmentSlipView?> Serk.Clinic.Scheduling.Contracts.IAppointmentReader.GetAsync(Guid appointmentId, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var db = await session.ContextAsync<SchedulingDbContext>(ct);
+        var a = await db.Appointments.AsNoTracking().SingleOrDefaultAsync(x => x.Id == appointmentId && x.TenantId == actor.TenantId && x.FacilityId == actor.FacilityId, ct);
+        return a is null ? null : new Serk.Clinic.Scheduling.Contracts.AppointmentSlipView(a.Id, a.FacilityId, a.PatientId, a.PractitionerId, a.StartsAt, a.EndsAt, a.Status.ToString());
+    }
+
     public async Task<Result<AppointmentDto>> BookAsync(BookAppointmentRequest request, string? idempotencyKey, CancellationToken ct)
     {
         var actor = context.RequireActor();
@@ -98,10 +106,15 @@ public sealed class AppointmentService(
             .OrderBy(a => a.StartsAt)
             .Take(500)
             .ToListAsync(ct);
+        // Batched lookups: 2 patient queries + 1 practitioner query for the whole day (no N+1).
+        var banners = await patients.GetBannersAsync(rows.Select(a => a.PatientId).ToList(), ct);
+        var practitioners = (await staff.ListFacilityPractitionersAsync(actor.TenantId, actor.FacilityId, ct)).ToDictionary(p => p.Id);
         var list = new List<AppointmentDto>(rows.Count);
         foreach (var a in rows)
         {
-            list.Add(await ToDtoAsync(a, ct));
+            var b = banners.GetValueOrDefault(a.PatientId);
+            var name = practitioners.TryGetValue(a.PractitionerId, out var p) ? p.DisplayName : (await staff.GetPractitionerAsync(actor.TenantId, a.PractitionerId, ct))?.DisplayName ?? "";
+            list.Add(new AppointmentDto(a.Id, a.PatientId, b?.Mrn ?? "", b?.DisplayName ?? "", b?.BirthDate, b?.BirthDateIsEstimated ?? false, b?.Sex ?? "", a.PractitionerId, name, a.StartsAt, a.EndsAt, a.Status.ToString(), a.Reason, a.EncounterId, a.Version));
         }
 
         return list;

@@ -86,6 +86,28 @@ public sealed class RequestSizeLimitMiddleware(RequestDelegate next)
     }
 }
 
+/// <summary>Adds a W3C Server-Timing header with total server processing time (ms, microsecond resolution) to API responses.</summary>
+public sealed class ServerTimingMiddleware(RequestDelegate next)
+{
+    public async Task InvokeAsync(HttpContext http)
+    {
+        if (!http.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(http);
+            return;
+        }
+
+        var start = System.Diagnostics.Stopwatch.GetTimestamp();
+        http.Response.OnStarting(() =>
+        {
+            var ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            http.Response.Headers.Append("Server-Timing", "app;dur=" + ms.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+            return Task.CompletedTask;
+        });
+        await next(http);
+    }
+}
+
 public sealed class DatabaseHealthCheck(NpgsqlDataSource dataSource) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)

@@ -9,10 +9,12 @@ public enum DocumentStatus
     Superseded,
 }
 
+/// <summary>Paper sizes allowed for clinical documents (archival, standard printers only — never thermal).</summary>
 public enum PaperSize
 {
     A4,
     A5,
+    A3,
 }
 
 /// <summary>

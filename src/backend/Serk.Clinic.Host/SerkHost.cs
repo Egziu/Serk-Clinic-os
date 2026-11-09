@@ -5,8 +5,12 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
+using Serk.Clinic.Analytics;
+using Serk.Clinic.Analytics.Api;
 using Serk.Clinic.Clinical;
 using Serk.Clinic.Clinical.Api;
+using Serk.Clinic.Configuration;
+using Serk.Clinic.Configuration.Api;
 using Serk.Clinic.Dental;
 using Serk.Clinic.Dental.Api;
 using Serk.Clinic.Documents;
@@ -76,7 +80,8 @@ public static class SerkHost
         builder.Services.AddSingleton<IObjectStore, FileSystemObjectStore>();
         builder.Services.Configure<DocumentOptions>(config.GetSection("Documents"));
 
-        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule();
+        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule().AddConfigurationModule().AddAnalyticsModule();
+        builder.Services.Configure<Serk.Clinic.Scheduling.Application.NoShowOptions>(config.GetSection("Scheduling:NoShow"));
 
         builder.Services.ConfigureHttpJsonOptions(o =>
         {
@@ -186,6 +191,7 @@ public static class SerkHost
                 extensions: new Dictionary<string, object?> { ["correlationId"] = http.RequestServices.GetRequiredService<RequestContext>().CorrelationId })
                 .ExecuteAsync(http);
         }));
+        app.UseMiddleware<ServerTimingMiddleware>();
         app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseMiddleware<CorrelationMiddleware>();
         app.UseMiddleware<RequestSizeLimitMiddleware>();
@@ -210,6 +216,8 @@ public static class SerkHost
         app.MapEncounterEndpoints();
         app.MapDocumentEndpoints();
         app.MapDentalEndpoints();
+        app.MapConfigurationEndpoints();
+        app.MapAnalyticsEndpoints();
         app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));
         app.MapFallbackToFile("index.html");
     }

@@ -6,6 +6,7 @@ using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using QRCoder;
 using Serk.Clinic.Clinical.Contracts;
+using Serk.Clinic.Configuration.Contracts;
 using Serk.Clinic.Documents.Contracts;
 using Serk.Clinic.SharedKernel;
 
@@ -26,7 +27,7 @@ public enum RenderMode
 public static class ConsultationSummaryRenderer
 {
     public const string TemplateCode = "consultation-summary";
-    public const int TemplateVersion = 2;
+    public const int TemplateVersion = 3;
     public const string PreviewWatermark = "PREVIEW - NOT ISSUED";
     public const string PreviewFooter = "DRAFT PREVIEW - NOT VALID FOR CLINICAL OR LEGAL USE";
     public const string FinalFooter = "Final document";
@@ -36,9 +37,15 @@ public static class ConsultationSummaryRenderer
     private static readonly Color Muted = new(0x5E, 0x66, 0x62);
     private static readonly Color Rule = new(0xC9, 0xD1, 0xCC);
 
-    public static byte[] Render(ConsultationDocumentSnapshotV1 s, RenderMode mode)
+    public const string SignaturePlaceholder = "[Signature image and stamp are applied only to the issued document]";
+
+    /// <param name="assets">Resolves frozen branding images (already hash-verified). Null renders without images.</param>
+    public static byte[] Render(ConsultationDocumentSnapshotV1 s, RenderMode mode, Func<AssetRef, byte[]>? assets = null)
     {
         EmbeddedFontResolver.EnsureInstalled();
+        var accent = ParseColor(s.Branding?.AccentColor) ?? Forest;
+        var wide = s.PaperSize == "A3";
+        _headingColor = accent;
         var zone = BusinessTime.Resolve(s.Facility.TimeZone);
         var doc = new Document();
         doc.Info.Title = "Consultation summary";
@@ -47,16 +54,17 @@ public static class ConsultationSummaryRenderer
 
         var normal = doc.Styles[StyleNames.Normal]!;
         normal.Font.Name = EmbeddedFontResolver.Latin;
-        normal.Font.Size = s.PaperSize == "A5" ? 8 : 9.5;
+        normal.Font.Size = s.PaperSize switch { "A5" => 8, "A3" => 11, _ => 9.5 };
         normal.Font.Color = Ink;
         normal.ParagraphFormat.SpaceAfter = Unit.FromPoint(2);
 
         var section = doc.AddSection();
         section.PageSetup = doc.DefaultPageSetup.Clone();
-        // PageFormat alone does not resize a cloned setup; set explicit dimensions (A4 210x297 mm, A5 148x210 mm).
-        section.PageSetup.PageFormat = s.PaperSize == "A5" ? PageFormat.A5 : PageFormat.A4;
-        section.PageSetup.PageWidth = Unit.FromMillimeter(s.PaperSize == "A5" ? 148 : 210);
-        section.PageSetup.PageHeight = Unit.FromMillimeter(s.PaperSize == "A5" ? 210 : 297);
+        // PageFormat alone does not resize a cloned setup; set explicit dimensions (A3 297x420, A4 210x297, A5 148x210 mm).
+        var (pw, ph) = s.PaperSize switch { "A5" => (148, 210), "A3" => (297, 420), _ => (210, 297) };
+        section.PageSetup.PageFormat = s.PaperSize switch { "A5" => PageFormat.A5, "A3" => PageFormat.A3, _ => PageFormat.A4 };
+        section.PageSetup.PageWidth = Unit.FromMillimeter(pw);
+        section.PageSetup.PageHeight = Unit.FromMillimeter(ph);
         section.PageSetup.TopMargin = Unit.FromCentimeter(2.6);
         section.PageSetup.BottomMargin = Unit.FromCentimeter(2.0);
         section.PageSetup.LeftMargin = Unit.FromCentimeter(s.PaperSize == "A5" ? 1.4 : 2.0);
@@ -64,9 +72,19 @@ public static class ConsultationSummaryRenderer
         section.PageSetup.HeaderDistance = Unit.FromCentimeter(1.0);
         section.PageSetup.FooterDistance = Unit.FromCentimeter(0.8);
 
-        // Running header: issuing facility (letterhead).
+        // Running header: issuing facility (letterhead), with the clinic logo when one is configured.
+        if (s.Branding?.Logo is { } logoRef && assets is not null)
+        {
+            var logo = section.Headers.Primary.AddImage(Base64Image(assets(logoRef)));
+            logo.Height = Unit.FromCentimeter(wide ? 1.6 : 1.2);
+            logo.LockAspectRatio = true;
+            logo.WrapFormat.Style = MigraDoc.DocumentObjectModel.Shapes.WrapStyle.Through;
+            logo.RelativeHorizontal = MigraDoc.DocumentObjectModel.Shapes.RelativeHorizontal.Margin;
+            logo.Left = MigraDoc.DocumentObjectModel.Shapes.ShapePosition.Right;
+        }
+
         var header = section.Headers.Primary.AddParagraph();
-        Append(header, s.Facility.Name, bold: true, size: 12, color: Forest);
+        Append(header, s.Facility.Name, bold: true, size: 12, color: accent);
         var headerLine = section.Headers.Primary.AddParagraph();
         Append(headerLine, Join(" | ", s.Facility.AddressLine, s.Facility.Phone, s.Facility.LicenseNumber.Length > 0 ? "Facility license " + s.Facility.LicenseNumber : ""), size: 8, color: Muted);
         headerLine.Format.Borders.Bottom.Color = Rule;
@@ -82,7 +100,7 @@ public static class ConsultationSummaryRenderer
         footer.AddNumPagesField();
 
         var title = section.AddParagraph();
-        Append(title, "Consultation Summary", bold: true, size: 15, color: Forest);
+        Append(title, "Consultation Summary", bold: true, size: wide ? 18 : 15, color: accent);
         title.Format.SpaceAfter = Unit.FromPoint(6);
 
         // Patient identity block — always first, never hidden.
@@ -127,22 +145,29 @@ public static class ConsultationSummaryRenderer
         Section(section, "Examination", content.Examination);
         Section(section, "Assessment", content.Assessment);
         Section(section, "Plan", content.Plan);
-        SignatureBlock(section, s.SignedParts[0], zone);
+        SignatureBlock(section, s.SignedParts[0], zone, s, mode, assets);
 
         foreach (var part in s.SignedParts.Skip(1))
         {
             Heading(section, "Addendum " + (part.VersionNo - 1).ToString(CultureInfo.InvariantCulture));
             Body(section, "Reason: " + part.Note.AddendumReason);
             Body(section, part.Note.AddendumText ?? "");
-            SignatureBlock(section, part, zone);
+            SignatureBlock(section, part, zone, s, mode, assets);
         }
 
         // Verification: QR contains only an opaque reference URL — never clinical data.
         Heading(section, "Verification");
         var verify = section.AddTable();
         verify.AddColumn(Unit.FromCentimeter(2.6));
-        verify.AddColumn(Unit.FromCentimeter(s.PaperSize == "A5" ? 9.0 : 13.0));
+        verify.AddColumn(Unit.FromCentimeter(s.PaperSize == "A5" ? 6.4 : 10.4));
+        verify.AddColumn(Unit.FromCentimeter(3.0));
         var row = verify.AddRow();
+        if (mode == RenderMode.Final && s.Branding?.Stamp is { } stampRef && assets is not null)
+        {
+            var stamp = row.Cells[2].AddImage(Base64Image(assets(stampRef)));
+            stamp.Width = Unit.FromCentimeter(2.8);
+            stamp.LockAspectRatio = true;
+        }
         var image = row.Cells[0].AddImage("base64:" + Convert.ToBase64String(QrPng(s.VerificationUrl)));
         image.Width = Unit.FromCentimeter(2.3);
         image.LockAspectRatio = true;
@@ -168,9 +193,24 @@ public static class ConsultationSummaryRenderer
         return ms.ToArray();
     }
 
-    private static void SignatureBlock(Section section, SignedPart part, TimeZoneInfo zone)
+    private static void SignatureBlock(Section section, SignedPart part, TimeZoneInfo zone, ConsultationDocumentSnapshotV1 s, RenderMode mode, Func<AssetRef, byte[]>? assets)
     {
         var n = part.Note;
+        var signatureRef = s.Branding?.SignaturesByPractitioner.GetValueOrDefault(n.SignerPractitionerId.ToString());
+        if (signatureRef is not null && assets is not null)
+        {
+            if (mode == RenderMode.Final)
+            {
+                var image = section.AddImage(Base64Image(assets(signatureRef)));
+                image.Height = Unit.FromCentimeter(1.3);
+                image.LockAspectRatio = true;
+            }
+            else
+            {
+                Append(section.AddParagraph(), SignaturePlaceholder, size: 8, color: Muted);
+            }
+        }
+
         var para = section.AddParagraph();
         para.Format.SpaceBefore = Unit.FromPoint(6);
         para.Format.Borders.Top.Color = Rule;
@@ -180,6 +220,13 @@ public static class ConsultationSummaryRenderer
         Append(when, "Signed " + FormatInstant(n.SignedAtUtc, zone) + " | Note version " + part.VersionNo.ToString(CultureInfo.InvariantCulture)
             + " | SHA-256 " + part.ContentSha256[..16], size: 8, color: Muted);
     }
+
+    public static string Base64Image(byte[] bytes) => "base64:" + Convert.ToBase64String(bytes);
+
+    public static Color? ParseColor(string? hex) =>
+        hex is { Length: 7 } && hex[0] == '#' && uint.TryParse(hex.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v)
+            ? new Color((byte)(v >> 16), (byte)(v >> 8), (byte)v)
+            : null;
 
     private static Table KeyValueTable(Section section, string paper)
     {
@@ -198,12 +245,15 @@ public static class ConsultationSummaryRenderer
         Append(row.Cells[1].AddParagraph(), value, bold: key is "Patient" or "MRN");
     }
 
+    [ThreadStatic]
+    private static Color? _headingColor;
+
     private static void Heading(Section section, string text)
     {
         var h = section.AddParagraph();
         h.Format.SpaceBefore = Unit.FromPoint(8);
         h.Format.KeepWithNext = true;
-        Append(h, text, bold: true, size: 10.5, color: Forest);
+        Append(h, text, bold: true, size: 10.5, color: _headingColor ?? Forest);
     }
 
     private static void Section(Section section, string heading, string text)

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Serk.Clinic.Clinical.Contracts;
+using Serk.Clinic.Configuration.Contracts;
 using Serk.Clinic.Documents.Contracts;
 using Serk.Clinic.Documents.Domain;
 using Serk.Clinic.Documents.Infrastructure;
@@ -13,6 +14,7 @@ using Serk.Clinic.Platform.Context;
 using Serk.Clinic.Platform.Data;
 using Serk.Clinic.Platform.Idempotency;
 using Serk.Clinic.Platform.Storage;
+using Serk.Clinic.Scheduling.Contracts;
 using Serk.Clinic.SharedKernel;
 
 namespace Serk.Clinic.Documents.Application;
@@ -56,8 +58,13 @@ public sealed class DocumentService(
     IStaffDirectory staff,
     IObjectStore objects,
     IOptions<DocumentOptions> options,
+    IBrandingReader branding,
+    IAppointmentReader appointments,
     TimeProvider clock)
 {
+    /// <summary>Well-known actor id recorded for automated actions (outbox/background jobs). Not a login account.</summary>
+    public static readonly Guid AutomationUserId = Guid.Parse("00000000-0000-7000-8000-00000000a070");
+
     /// <summary>Print kinds the browser can truthfully report. Physical printing can never be confirmed by the browser.</summary>
     public static readonly IReadOnlySet<string> PrintKinds = new HashSet<string>(StringComparer.Ordinal) { "PrintDialogOpened", "PrintFailureReported" };
 
@@ -86,7 +93,18 @@ public sealed class DocumentService(
 
         var now = clock.GetUtcNow();
         var reference = NewReference();
-        var paper = request.PaperSize ?? PaperSize.A4;
+        var facilityBranding = await branding.GetFacilityBrandingAsync(last.FacilityId, ct);
+        var paper = request.PaperSize ?? Enum.Parse<PaperSize>(facilityBranding.DefaultClinicalPaper);
+        var signatures = new Dictionary<string, AssetRef>(StringComparer.Ordinal);
+        foreach (var signer in chain.Select(c => c.Snapshot.SignerPractitionerId).Distinct())
+        {
+            if (await branding.GetActiveSignatureAsync(signer, ct) is { } sig)
+            {
+                signatures[signer.ToString()] = sig;
+            }
+        }
+
+        var brandingBlock = new BrandingBlock(facilityBranding.AccentColor, facilityBranding.Logo, facilityBranding.Stamp, signatures);
         var signedDate = DateOnly.FromDateTime(chain[0].Snapshot.SignedAtUtc.UtcDateTime);
         var snapshot = new ConsultationDocumentSnapshotV1(
             1,
@@ -100,7 +118,8 @@ public sealed class DocumentService(
             new PatientBlock(banner.Mrn, banner.DisplayName, banner.Sex, banner.BirthDate, banner.BirthDateIsEstimated, AgeYears(banner.BirthDate, signedDate)),
             last.EncounterId,
             last.EncounterStartedAtUtc,
-            chain.Select(c => new SignedPart(c.NoteVersionId, c.VersionNo, c.ContentSha256, c.Snapshot)).ToList());
+            chain.Select(c => new SignedPart(c.NoteVersionId, c.VersionNo, c.ContentSha256, c.Snapshot)).ToList(),
+            brandingBlock);
 
         var json = CanonicalJson.Serialize(snapshot);
         var doc = DocumentVersion.CreateDraft(Guid.CreateVersion7(), actor.TenantId, last.FacilityId, last.PatientId, last.EncounterId, last.NoteVersionId,
@@ -133,7 +152,8 @@ public sealed class DocumentService(
             return Error.NotFound();
         }
 
-        var bytes = ConsultationSummaryRenderer.Render(ReadSnapshot(doc), RenderMode.Preview);
+        var snapshot = ReadSnapshot(doc);
+        var bytes = ConsultationSummaryRenderer.Render(snapshot, RenderMode.Preview, await LoadAssetsAsync(snapshot, ct));
         await audit.RecordAsync(new AuditEntry("document.preview", "document", doc.Id, doc.PatientId), ct);
         await session.CommitAsync(ct);
         return new RenderedPdf(bytes, $"preview-{doc.VerificationRef}.pdf", doc.SnapshotSha256, doc.TemplateVersion, null);
@@ -161,7 +181,8 @@ public sealed class DocumentService(
                 return Error.Conflict("stale_document", "An addendum was signed after this preview was prepared. Prepare a new document from the latest version.");
             }
 
-            var pdf = ConsultationSummaryRenderer.Render(ReadSnapshot(doc), RenderMode.Final);
+            var snapshot = ReadSnapshot(doc);
+            var pdf = ConsultationSummaryRenderer.Render(snapshot, RenderMode.Final, await LoadAssetsAsync(snapshot, innerCt));
             var key = $"documents/{doc.TenantId:N}/{Guid.NewGuid():N}.pdf";
             var previous = await db.Documents
                 .Where(d => d.EncounterId == doc.EncounterId && d.TemplateCode == doc.TemplateCode && d.Status == DocumentStatus.Final && d.Id != doc.Id)
@@ -283,6 +304,79 @@ public sealed class DocumentService(
         }
 
         return new VerificationDto(true, reader.GetString(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetFieldValue<DateTimeOffset>(4), reader.GetString(5));
+    }
+
+    /// <summary>
+    /// Automation (outbox): prepares a draft consultation summary after a signature when the facility enables it.
+    /// Idempotent: skips if a document already exists for that note version, or if a newer version was signed meanwhile.
+    /// </summary>
+    public async Task<string> PrepareAutomaticDraftAsync(Guid noteVersionId, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var facilityBranding = await branding.GetFacilityBrandingAsync(actor.FacilityId, ct);
+        if (!facilityBranding.AutoPrepareDocuments)
+        {
+            return "disabled";
+        }
+
+        var db = await session.ContextAsync<DocumentsDbContext>(ct);
+        if (await db.Documents.AnyAsync(d => d.NoteVersionId == noteVersionId && d.TemplateCode == ConsultationSummaryRenderer.TemplateCode, ct))
+        {
+            return "already_exists";
+        }
+
+        var created = await CreateAsync(new CreateDocumentRequest(noteVersionId, null), ct);
+        return created.IsSuccess ? "created" : "skipped:" + created.Error!.Code;
+    }
+
+    public async Task<Result<RenderedPdf>> AppointmentSlipAsync(Guid appointmentId, SlipPaper paper, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var appt = await appointments.GetAsync(appointmentId, ct);
+        if (appt is null)
+        {
+            return Error.NotFound();
+        }
+
+        if (appt.Status is "Cancelled" or "NoShow")
+        {
+            return Error.Rule("appointment_inactive", "Slips are only printed for booked or checked-in appointments.");
+        }
+
+        var patient = await patients.GetBannerAsync(appt.PatientId, ct);
+        var facility = await staff.GetFacilityAsync(actor.TenantId, appt.FacilityId, ct);
+        var practitioner = await staff.GetPractitionerAsync(actor.TenantId, appt.PractitionerId, ct);
+        if (patient is null || facility is null || practitioner is null)
+        {
+            return Error.NotFound();
+        }
+
+        var facilityBranding = await branding.GetFacilityBrandingAsync(appt.FacilityId, ct);
+        var logo = facilityBranding.Logo is { } l ? await branding.ReadAssetAsync(l, ct) : null;
+        var reference = appointmentId.ToString("N")[^8..].ToUpperInvariant();
+        var bytes = AppointmentSlipRenderer.Render(
+            new AppointmentSlip(facility.Name, facility.Phone, patient.DisplayName, patient.Mrn, practitioner.DisplayName, appt.StartsAt, facility.TimeZone, reference, logo),
+            paper);
+        await audit.RecordAsync(new AuditEntry("appointment.slip.render", "appointment", appointmentId, appt.PatientId, Metadata: new Dictionary<string, string> { ["paper"] = paper.ToString() }), ct);
+        await session.CommitAsync(ct);
+        return new RenderedPdf(bytes, $"slip-{reference}.pdf", "", 0, null);
+    }
+
+    private async Task<Func<AssetRef, byte[]>?> LoadAssetsAsync(ConsultationDocumentSnapshotV1 snapshot, CancellationToken ct)
+    {
+        if (snapshot.Branding is not { } b)
+        {
+            return null;
+        }
+
+        var refs = new[] { b.Logo, b.Stamp }.Concat(b.SignaturesByPractitioner.Values).OfType<AssetRef>().DistinctBy(r => r.Id).ToList();
+        var loaded = new Dictionary<Guid, byte[]>();
+        foreach (var r in refs)
+        {
+            loaded[r.Id] = await branding.ReadAssetAsync(r, ct); // hash-verified: the frozen image, never a later replacement
+        }
+
+        return r => loaded[r.Id];
     }
 
     private static async Task<DocumentVersion?> FindAsync(DocumentsDbContext db, Guid id, StaffActor actor, bool tracking, CancellationToken ct)

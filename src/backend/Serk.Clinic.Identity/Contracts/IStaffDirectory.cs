@@ -32,4 +32,7 @@ public interface IStaffDirectory
 
     /// <summary>True when the practitioner holds an active affiliation at the facility.</summary>
     Task<bool> IsPractitionerActiveAtFacilityAsync(Guid tenantId, Guid facilityId, Guid practitionerId, CancellationToken ct);
+
+    /// <summary>All tenant ids (for trusted background jobs that iterate tenants with per-tenant RLS context).</summary>
+    Task<IReadOnlyList<Guid>> ListTenantIdsAsync(CancellationToken ct);
 }

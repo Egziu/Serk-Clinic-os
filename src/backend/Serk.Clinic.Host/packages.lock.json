@@ -47,11 +47,26 @@
           "Microsoft.Win32.SystemEvents": "6.0.0"
         }
       },
+      "serk.clinic.analytics": {
+        "type": "Project",
+        "dependencies": {
+          "Serk.Clinic.Identity": "[1.0.0, )",
+          "Serk.Clinic.Platform": "[1.0.0, )",
+          "Serk.Clinic.SharedKernel": "[1.0.0, )"
+        }
+      },
       "serk.clinic.clinical": {
         "type": "Project",
         "dependencies": {
           "Serk.Clinic.Identity": "[1.0.0, )",
           "Serk.Clinic.Patients": "[1.0.0, )",
+          "Serk.Clinic.Platform": "[1.0.0, )",
+          "Serk.Clinic.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "serk.clinic.configuration": {
+        "type": "Project",
+        "dependencies": {
           "Serk.Clinic.Platform": "[1.0.0, )",
           "Serk.Clinic.SharedKernel": "[1.0.0, )"
         }
@@ -70,9 +85,11 @@
           "PDFsharp-MigraDoc": "[6.2.4, )",
           "QRCoder": "[1.8.1, )",
           "Serk.Clinic.Clinical": "[1.0.0, )",
+          "Serk.Clinic.Configuration": "[1.0.0, )",
           "Serk.Clinic.Identity": "[1.0.0, )",
           "Serk.Clinic.Patients": "[1.0.0, )",
           "Serk.Clinic.Platform": "[1.0.0, )",
+          "Serk.Clinic.Scheduling": "[1.0.0, )",
           "Serk.Clinic.SharedKernel": "[1.0.0, )"
         }
       },

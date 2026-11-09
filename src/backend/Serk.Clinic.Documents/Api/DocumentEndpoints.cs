@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Serk.Clinic.Documents.Application;
+using Serk.Clinic.Documents.Rendering;
 using Serk.Clinic.Platform.Http;
 using Serk.Clinic.SharedKernel;
 
@@ -37,6 +38,11 @@ public static class DocumentEndpoints
             (await service.RecordPrintEventAsync(id, body, ct)).ToHttp(_ => Results.NoContent()))
             .RequireCapability(Capabilities.DocumentRead);
 
+        app.MapGet("/api/v1/appointments/{id:guid}/slip", async (Guid id, SlipPaper? paper, DocumentService service, HttpResponse response, CancellationToken ct) =>
+            (await service.AppointmentSlipAsync(id, paper ?? SlipPaper.Thermal80, ct)).ToHttp(pdf => Pdf(response, pdf, inline: true)))
+            .WithTags("Documents")
+            .RequireCapability(Capabilities.AppointmentRead);
+
         // Public, unauthenticated verification by opaque reference. Returns no patient data. Rate limited.
         app.MapGet("/api/v1/verify/{reference}", async (string reference, DocumentService service, CancellationToken ct) =>
             Results.Ok(await service.VerifyAsync(reference, ct)))
@@ -48,8 +54,11 @@ public static class DocumentEndpoints
     private static IResult Pdf(HttpResponse response, RenderedPdf pdf, bool inline)
     {
         response.Headers.CacheControl = "no-store, private";
-        response.Headers["X-Snapshot-Sha256"] = pdf.SnapshotSha256;
-        response.Headers["X-Template-Version"] = pdf.TemplateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (pdf.SnapshotSha256.Length > 0)
+        {
+            response.Headers["X-Snapshot-Sha256"] = pdf.SnapshotSha256;
+            response.Headers["X-Template-Version"] = pdf.TemplateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
         if (pdf.PdfSha256 is not null)
         {
             response.Headers["X-Pdf-Sha256"] = pdf.PdfSha256;

@@ -61,6 +61,13 @@
           "Serk.Clinic.SharedKernel": "[1.0.0, )"
         }
       },
+      "serk.clinic.configuration": {
+        "type": "Project",
+        "dependencies": {
+          "Serk.Clinic.Platform": "[1.0.0, )",
+          "Serk.Clinic.SharedKernel": "[1.0.0, )"
+        }
+      },
       "serk.clinic.identity": {
         "type": "Project",
         "dependencies": {
@@ -81,6 +88,16 @@
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.14, )",
           "Npgsql": "[10.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
+          "Serk.Clinic.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "serk.clinic.scheduling": {
+        "type": "Project",
+        "dependencies": {
+          "Serk.Clinic.Clinical": "[1.0.0, )",
+          "Serk.Clinic.Identity": "[1.0.0, )",
+          "Serk.Clinic.Patients": "[1.0.0, )",
+          "Serk.Clinic.Platform": "[1.0.0, )",
           "Serk.Clinic.SharedKernel": "[1.0.0, )"
         }
       },

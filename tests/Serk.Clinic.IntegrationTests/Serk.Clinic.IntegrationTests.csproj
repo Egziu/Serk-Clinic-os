@@ -5,4 +5,7 @@
     <PackageReference Include="PdfPig" />
     <ProjectReference Include="..\..\src\backend\Serk.Clinic.Host\Serk.Clinic.Host.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\fixtures\images\*" Link="fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

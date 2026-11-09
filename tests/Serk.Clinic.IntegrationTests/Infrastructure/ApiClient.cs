@@ -61,6 +61,23 @@ public sealed class ApiClient(HttpClient http) : IDisposable
 
     public Task<HttpResponseMessage> GetAsync(string url) => SendAsync(HttpMethod.Get, url);
 
+    public async Task<HttpResponseMessage> UploadAsync(string url, byte[] bytes, string fileName, string contentType, bool includeCsrf = true)
+    {
+        using var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(bytes);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(file, "file", fileName);
+        var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = form };
+        if (includeCsrf && Csrf is not null)
+        {
+            req.Headers.Add("X-CSRF-Token", Csrf);
+        }
+
+        return await http.SendAsync(req);
+    }
+
+    public static byte[] Fixture(string name) => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "fixtures", name));
+
     public async Task<JsonElement> GetJsonAsync(string url)
     {
         var r = await GetAsync(url);

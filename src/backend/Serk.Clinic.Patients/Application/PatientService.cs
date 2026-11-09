@@ -273,6 +273,28 @@ public sealed class PatientService(DbSession session, RequestContext context, Au
         return new PatientBanner(p.Id, p.Mrn, p.DisplayName, p.Sex.ToString(), p.BirthDate, p.BirthDateIsEstimated, p.AllergyStatus.ToString(), p.AllergyStatusUpdatedAt, allergies);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, PatientBanner>> GetBannersAsync(IReadOnlyCollection<Guid> patientIds, CancellationToken ct)
+    {
+        var tenant = context.EffectiveTenantId ?? throw new InvalidOperationException("Tenant context required.");
+        if (patientIds.Count == 0)
+        {
+            return new Dictionary<Guid, PatientBanner>();
+        }
+
+        var ids = patientIds.Distinct().ToList();
+        var db = await session.ContextAsync<PatientsDbContext>(ct);
+        var patients = await db.Patients.AsNoTracking().Where(p => p.TenantId == tenant && ids.Contains(p.Id)).ToListAsync(ct);
+        var allergies = (await db.Allergies.AsNoTracking()
+                .Where(a => a.TenantId == tenant && ids.Contains(a.PatientId) && a.Status == AllergyRecordStatus.Active)
+                .OrderBy(a => a.Substance)
+                .ToListAsync(ct))
+            .ToLookup(a => a.PatientId);
+        return patients.ToDictionary(
+            p => p.Id,
+            p => new PatientBanner(p.Id, p.Mrn, p.DisplayName, p.Sex.ToString(), p.BirthDate, p.BirthDateIsEstimated, p.AllergyStatus.ToString(), p.AllergyStatusUpdatedAt,
+                allergies[p.Id].Select(a => new AllergySummary(a.Substance, a.Reaction, a.Severity.ToString())).ToList()));
+    }
+
     private async Task<string> NextMrnAsync(Guid tenantId, CancellationToken ct)
     {
         await using var cmd = await session.CommandAsync(

@@ -4,5 +4,10 @@
     <ProjectReference Include="..\..\src\backend\Serk.Clinic.Documents\Serk.Clinic.Documents.csproj" />
     <ProjectReference Include="..\..\src\backend\Serk.Clinic.Scheduling\Serk.Clinic.Scheduling.csproj" />
     <ProjectReference Include="..\..\src\specialties\Serk.Clinic.Dental\Serk.Clinic.Dental.csproj" />
+    <ProjectReference Include="..\..\src\backend\Serk.Clinic.Analytics\Serk.Clinic.Analytics.csproj" />
+    <ProjectReference Include="..\..\src\backend\Serk.Clinic.Configuration\Serk.Clinic.Configuration.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\fixtures\images\*" Link="fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

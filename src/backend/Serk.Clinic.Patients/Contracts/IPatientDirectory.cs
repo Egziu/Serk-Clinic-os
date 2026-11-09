@@ -28,4 +28,7 @@ public interface IPatientDirectory
     Task<bool> ExistsAsync(Guid patientId, CancellationToken ct);
 
     Task<PatientBanner?> GetBannerAsync(Guid patientId, CancellationToken ct);
+
+    /// <summary>Batch lookup (two queries regardless of count) to avoid N+1 on lists.</summary>
+    Task<IReadOnlyDictionary<Guid, PatientBanner>> GetBannersAsync(IReadOnlyCollection<Guid> patientIds, CancellationToken ct);
 }

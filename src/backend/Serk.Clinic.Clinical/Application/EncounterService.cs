@@ -102,17 +102,10 @@ public sealed class EncounterService(
         }
 
         var encounters = await query.OrderBy(e => e.StartedAt).Take(100).ToListAsync(ct);
-        var items = new List<EncounterListItemDto>(encounters.Count);
-        foreach (var e in encounters)
-        {
-            var banner = await patients.GetBannerAsync(e.PatientId, ct);
-            if (banner is not null)
-            {
-                items.Add(new EncounterListItemDto(e.Id, e.Status.ToString(), e.StartedAt, e.PatientId, banner.Mrn, banner.DisplayName, banner.AllergyStatus));
-            }
-        }
-
-        return items;
+        var banners = await patients.GetBannersAsync(encounters.Select(e => e.PatientId).ToList(), ct);
+        return encounters.Where(e => banners.ContainsKey(e.PatientId))
+            .Select(e => new EncounterListItemDto(e.Id, e.Status.ToString(), e.StartedAt, e.PatientId, banners[e.PatientId].Mrn, banners[e.PatientId].DisplayName, banners[e.PatientId].AllergyStatus))
+            .ToList();
     }
 
     public async Task<Result<EncounterDetailDto>> GetAsync(Guid id, CancellationToken ct)
@@ -208,7 +201,7 @@ public sealed class EncounterService(
             var version = signed.Value.WithSigningUser(actor.UserId);
             db.NoteVersions.Add(version);
             await audit.RecordAsync(new AuditEntry("note.sign", "note_version", version.Id, encounter.PatientId, Metadata: new Dictionary<string, string> { ["sha256"] = version.ContentSha256 }), innerCt);
-            await outbox.EnqueueAsync(NoteSignedMessage, new { encounterId = encounter.Id, noteVersionId = version.Id }, innerCt);
+            await outbox.EnqueueAsync(NoteSignedMessage, new { encounterId = encounter.Id, noteVersionId = version.Id, facilityId = encounter.FacilityId, actorUserId = actor.UserId, occurredAt = version.SignedAt }, innerCt);
             return Result<SignResultDto>.Ok(new SignResultDto(version.Id, version.VersionNo, version.ContentSha256, version.SignedAt));
         }, ct);
 
@@ -249,7 +242,7 @@ public sealed class EncounterService(
             var version = addendum.Value.WithSigningUser(actor.UserId);
             db.NoteVersions.Add(version);
             await audit.RecordAsync(new AuditEntry("note.addendum", "note_version", version.Id, encounter.PatientId, Reason: "addendum"), innerCt);
-            await outbox.EnqueueAsync(NoteSignedMessage, new { encounterId = encounter.Id, noteVersionId = version.Id }, innerCt);
+            await outbox.EnqueueAsync(NoteSignedMessage, new { encounterId = encounter.Id, noteVersionId = version.Id, facilityId = encounter.FacilityId, actorUserId = actor.UserId, occurredAt = version.SignedAt }, innerCt);
             return Result<SignResultDto>.Ok(new SignResultDto(version.Id, version.VersionNo, version.ContentSha256, version.SignedAt));
         }, ct);
 

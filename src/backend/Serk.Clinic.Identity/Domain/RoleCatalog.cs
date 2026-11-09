@@ -5,12 +5,13 @@ namespace Serk.Clinic.Identity.Domain;
 /// <summary>
 /// Versioned default role → capability mapping (policy version <see cref="Version"/>). Roles are bundles; checks are
 /// always on capabilities. Notable design decisions (see docs/security/THREAT_MODEL.md):
-/// clinic administrators manage staff and read audit but have NO clinical-note capability; platform support has no
+/// clinic administrators/owners manage staff, branding, printers and read aggregated analytics but have NO clinical-note or
+/// patient-level capability; platform support has no
 /// tenant role at all; reception sees demographics but not allergies or notes.
 /// </summary>
 public static class RoleCatalog
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
     public const string Receptionist = "Receptionist";
     public const string Nurse = "Nurse";
@@ -18,6 +19,7 @@ public static class RoleCatalog
     public const string Dentist = "Dentist";
     public const string ClinicAdmin = "ClinicAdmin";
     public const string Cashier = "Cashier";
+    public const string Owner = "Owner";
 
     private static readonly Dictionary<string, string[]> Map = new(StringComparer.Ordinal)
     {
@@ -44,7 +46,9 @@ public static class RoleCatalog
             Capabilities.DocumentCreate, Capabilities.DocumentFinalize, Capabilities.DocumentRead,
             Capabilities.DentalChartRead, Capabilities.DentalChartWrite,
         ],
-        [ClinicAdmin] = [Capabilities.StaffAdmin, Capabilities.AuditRead, Capabilities.AppointmentRead],
+        [ClinicAdmin] = [Capabilities.StaffAdmin, Capabilities.AuditRead, Capabilities.AppointmentRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AnalyticsRead],
+        // Owner/management: aggregated analytics, branding and printers; no patient-level or clinical access.
+        [Owner] = [Capabilities.AnalyticsRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AuditRead],
         [Cashier] = [Capabilities.PatientSearch, Capabilities.PatientReadDemographics],
     };
 

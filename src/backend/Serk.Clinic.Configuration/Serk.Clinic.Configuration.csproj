@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Configuration module: facility settings (theme, defaults, automation), branding assets, printer profiles. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Serk.Clinic.SharedKernel\Serk.Clinic.SharedKernel.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Platform\Serk.Clinic.Platform.csproj" />
+  </ItemGroup>
+</Project>
