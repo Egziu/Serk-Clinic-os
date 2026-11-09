@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Universal primitives only: ids, results, business time, capability vocabulary. No EF/ASP.NET/Npgsql. -->
+</Project>

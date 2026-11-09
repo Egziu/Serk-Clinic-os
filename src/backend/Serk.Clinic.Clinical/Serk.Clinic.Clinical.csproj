@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Serk.Clinic.SharedKernel\Serk.Clinic.SharedKernel.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Platform\Serk.Clinic.Platform.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Identity\Serk.Clinic.Identity.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Patients\Serk.Clinic.Patients.csproj" />
+  </ItemGroup>
+</Project>

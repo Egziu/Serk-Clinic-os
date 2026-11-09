@@ -1,0 +1,12 @@
+ID,Module,Scenario,ReleaseBlocking,RequiredEvidence,Status
+TENANT-001,Security,Patient ID denied across tenants,Yes,Integration test log,NOT RUN
+TENANT-003,Security,Pooled connection RLS context fails closed,Yes,Integration test log,NOT RUN
+EMR-003,Clinical,Authorized clinician signs immutable note,Yes,Integration and E2E trace,NOT RUN
+EMR-004,Clinical,Signed note silent modification prohibited,Yes,Negative integration test,NOT RUN
+EMR-005,Clinical,Attributable addendum preserves prior version,Yes,Integration test log,NOT RUN
+BILL-002,Finance,Payment callback replay idempotent,Yes,Concurrency test log,NOT RUN
+MED-003,Pharmacy,Duplicate dispense blocked,Yes,Concurrency test log,NOT RUN
+DOC-002,Documents,Pdf preview final identical version and data snapshot,Yes,PDF rendering and visual diff,NOT RUN
+DOC-004,Documents,Private document denied across tenant,Yes,Negative API test,NOT RUN
+OPS-003,Operations,Encrypted database+object+key restore,Yes,Restore drill report,NOT RUN
+SEC-005,Security,Break-glass expires and is reviewed,Yes,Integration and audit evidence,NOT RUN
