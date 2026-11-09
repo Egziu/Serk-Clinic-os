@@ -1,0 +1,17 @@
+RequirementID,Source,Module,Severity,Risk,ImplementationPath,TestCaseIDs,EvidencePath,Reviewer,Status
+REQ-ID-01,04_SECURITY §1; MASTER §8.3,Identity,Critical,Account takeover,src/backend/Serk.Clinic.Identity/Application/AuthService.cs,IDENT-002; AuthTests,docs/evidence/milestone-A,AI reviewer (security),Automatically tested
+REQ-ID-02,MASTER §8.3 MFA,Identity,Critical,Account takeover,—,IDENT-001,—,—,Not implemented (blocker)
+REQ-TEN-01,03_DATA tenant isolation,Platform/all,Critical,Cross-tenant leak,database/migrations/*.sql; Platform/Data/DbSession.cs,TENANT-001..004,docs/evidence/milestone-A,AI reviewer (security),Automatically tested
+REQ-AUTHZ-01,04_SECURITY access matrix,Identity,Critical,Over-broad access,Identity/Domain/RoleCatalog.cs; Platform/Http/EndpointAuthorization.cs,SEC-003; Clinic_admin_cannot_read_charts,docs/evidence/milestone-A,AI reviewer (security),Automatically tested
+REQ-PAT-01,02_MODULES Patient Registry,Patients,High,Duplicate/wrong patient,Patients/Domain/*.cs; Application/PatientService.cs,PAT-001; PAT-002,docs/evidence/milestone-A,AI reviewer (clinical),Automatically tested (merge pending)
+REQ-APPT-01,02_MODULES Front Desk,Scheduling,High,Double booking,database/migrations/0004_scheduling.sql; Scheduling/*,APPT-001..003,docs/evidence/milestone-A,—,Automatically tested
+REQ-EMR-01,01_SYSTEM sign transaction; MASTER §4 C,Clinical,Critical,Altered signed record,Clinical/Domain/Encounter.cs; 0005_clinical.sql; 0007,EMR-001..006,docs/evidence/milestone-A,AI reviewers (all),Automatically tested; clinical content PENDING
+REQ-ALG-01,04_SECURITY clinical safety,Patients/Clinical,Critical,Missed allergy,Patients/Domain/Allergy.cs; allergy review token,MED-001; HAZ-006/007/009 tests,docs/evidence/milestone-A,AI reviewer (clinical),Automatically tested; clinical review PENDING
+REQ-DOC-01,05_UX document pipeline; MASTER §7,Documents,Critical,Wrong/unsigned document used,Documents/*; 0006/0007 migrations,DOC-001..005,docs/evidence/milestone-A,AI reviewers,Automatically tested (pixel diff not run)
+REQ-AUD-01,04_SECURITY audit,Platform,High,Undetected misuse,Platform/Audit/AuditTrail.cs; 0001_platform.sql,EMR-006; Sensitive_read_audited,docs/evidence/milestone-A,AI reviewer (security),Automatically tested
+REQ-OUT-01,01_SYSTEM outbox,Platform,High,Lost work,Platform/Outbox/Outbox.cs,OPS-004,docs/evidence/milestone-A,AI reviewer (QA),Automatically tested
+REQ-CAL-01,05_UX calendars; MASTER §6,SharedKernel/web,High,Date misinterpretation,SharedKernel/EthiopianDate.cs; web/src/lib/ethiopian.ts,APPT-003,docs/evidence/milestone-A,—,Automatically tested; clinical review PENDING
+REQ-LOG-01,MASTER §5 PHI in logs,Host,High,PHI leakage,SerkHost.cs exception handler,SEC-004,docs/evidence/milestone-A,AI reviewer (security),Automatically tested
+REQ-UX-01,MASTER §6 accessibility,web,High,Unusable for some staff,src/web/*,E2E axe scans,docs/evidence/milestone-A/screenshots,—,Automatically tested (automated subset only)
+REQ-BAK-01,06_OPERATIONS backup,Operations,Critical,Data loss,—,OPS-003,—,—,Not implemented
+REQ-DENT-01,02_MODULES Dental; MASTER §4 E,Dental,High,Wrong tooth / lost history,src/specialties/Serk.Clinic.Dental; database/migrations/0008_dental.sql; src/web/src/pages/DentalChart.tsx,DENT-001..003,docs/evidence/milestone-A/screenshots/05-dental-chart.png,—,Automatically tested; clinical review PENDING; DENT-004 not implemented

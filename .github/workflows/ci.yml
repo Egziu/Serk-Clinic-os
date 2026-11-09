@@ -1,0 +1,109 @@
+name: ci
+
+on:
+  push:
+    branches: ["main", "claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_PASSWORD: ci-only-postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      SERK_TEST_PG_ADMIN: "Host=localhost;Port=5432;Username=postgres;Password=ci-only-postgres"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore (locked)
+        run: dotnet restore --locked-mode
+      - name: Format check
+        run: dotnet format --verify-no-changes --no-restore
+      - name: Build (warnings as errors)
+        run: dotnet build --no-restore -c Release
+      - name: Vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive | tee vuln.txt
+          ! grep -q "has the following vulnerable packages" vuln.txt
+      - name: Tests (unit, architecture, integration on PostgreSQL 16)
+        run: dotnet test --no-build -c Release --logger "trx;LogFilePrefix=serk" --results-directory test-results
+      - name: Upload test results (synthetic data only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: test-results
+          retention-days: 14
+
+  web:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/web/.nvmrc
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: [backend, web]
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_PASSWORD: devonly-postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/web/.nvmrc
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: npm ci
+        working-directory: src/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: src/web
+      - run: ./tools/e2e.sh
+      - name: Upload E2E evidence (synthetic data only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-evidence
+          path: |
+            artifacts/e2e-results.json
+            artifacts/e2e-output
+            docs/evidence/milestone-A/screenshots
+          retention-days: 14

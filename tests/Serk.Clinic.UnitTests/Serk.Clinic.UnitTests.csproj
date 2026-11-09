@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="PdfPig" />
+    <ProjectReference Include="..\..\src\backend\Serk.Clinic.Documents\Serk.Clinic.Documents.csproj" />
+    <ProjectReference Include="..\..\src\backend\Serk.Clinic.Scheduling\Serk.Clinic.Scheduling.csproj" />
+    <ProjectReference Include="..\..\src\specialties\Serk.Clinic.Dental\Serk.Clinic.Dental.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,22 @@
+ASVS 5.0 area (paraphrased; verify IDs against the published standard),Requirement summary,Level target,Implementation,Test evidence,Status
+V1 Encoding & sanitization,Output encoding / no HTML injection in UI and PDF,L2,React escapes by default; ESLint bans dangerouslySetInnerHTML and inline style; PDF text inserted as plain runs,unit Markup_like_patient_text_is_rendered_literally; eslint config,Automatically tested
+V1 Injection,Parameterized SQL everywhere,L2,EF Core + Npgsql parameters; DDL identifiers via format(%I/%L),Code review; integration suite,Implemented (no SAST run)
+V2 Validation & business logic,Server-side validation and business rules,L2,Domain ValidationCollector; DB CHECK constraints,PatientDomainTests; ClinicalDomainTests,Automatically tested
+V4 API & web service,Mass assignment prevention,L2,JsonUnmappedMemberHandling.Disallow,Unknown_json_members_rejected,Automatically tested
+V4 API & web service,Request size limits,L2,1 MB cap middleware + Kestrel,Request_limits,Automatically tested
+V6 Authentication,Password storage,L2,ASP.NET Core Identity PasswordHasher (PBKDF2),Code review,Implemented
+V6 Authentication,Brute-force protection,L2,Atomic lockout after 5 failures + per-IP rate limit,Lockout_after_repeated_failures,Automatically tested
+V6 Authentication,MFA for privileged users,L3 (high-risk),NOT IMPLEMENTED (ADR-0004: OIDC IdP with MFA),None,NOT IMPLEMENTED — release blocker
+V7 Session management,Server-side revocable sessions; idle/absolute timeout,L2,identity.sessions with revocation; 30 min idle / 12 h absolute,Logout_revokes_session; Admin_can_revoke...,Automatically tested (timeouts not time-travel tested)
+V7 Session management,Cookie attributes,L2,__Host- HttpOnly Secure SameSite=Strict,Session_cookie_is_httponly_secure_samesite_strict,Automatically tested
+V8 Authorization,Object-level authorization (BOLA/IDOR) and tenant isolation,L3,App predicates + RLS FORCE fail-closed + ABAC facility/attending,TenantIsolationTests (7 tests),Automatically tested
+V8 Authorization,Least privilege database role,L3,Non-owner NOBYPASSRLS runtime role,Runtime_role_is_least_privilege,Automatically tested
+V3 Web frontend security,CSRF,L2,SameSite=Strict + per-session CSRF header token,Unsafe_request_without_csrf_token_is_rejected,Automatically tested
+V3 Web frontend security,Security headers / CSP / clickjacking,L2,CSP self-only; frame-ancestors self; nosniff; no-referrer,Security_headers_are_present,Automatically tested (HSTS open)
+V14 Data protection,No sensitive data in logs or caches,L2,Exception-type-only logging; no-store on API,Logs_do_not_contain_phi,Automatically tested (one synthetic marker scenario)
+V16 Security logging,Audit of sensitive reads/writes/prints; append-only,L3,audit.audit_events append-only + security_events,Sensitive_read_audited; Print_status_is_truthful,Automatically tested
+V11 Cryptography,Integrity hashes for signed records and PDFs,L2,SHA-256 canonical snapshot and PDF hash,Tampered_snapshot_fails_integrity_check; Tampered_object_is_not_served,Automatically tested
+V12 Secure communication,TLS,L2,Deployment responsibility (not configured in repo),None,NOT RUN
+V5 File handling,Uploads,L2,No upload feature yet,None,Not applicable yet
+V13 Configuration,Fail fast on unsafe configuration,L2,Startup rejects missing App connection / non-https verify base outside Development; demo seed refused outside Development/Testing,Code review,Implemented (not tested)
+V15 Secure coding & architecture,Dependency hygiene,L2,Locked restore; NuGet audit as error; npm audit; license guard,DependencyLicenseTests; CI workflow,Automatically tested (CI not yet observed running)

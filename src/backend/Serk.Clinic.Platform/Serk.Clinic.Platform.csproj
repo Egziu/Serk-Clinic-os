@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Cross-cutting infrastructure: request context, transactional DB session with RLS context, audit, outbox, idempotency, object storage, migrations runner. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <ProjectReference Include="..\Serk.Clinic.SharedKernel\Serk.Clinic.SharedKernel.csproj" />
+  </ItemGroup>
+</Project>

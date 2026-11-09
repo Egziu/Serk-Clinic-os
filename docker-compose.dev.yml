@@ -1,0 +1,15 @@
+# Local development ONLY (synthetic data). Not a production deployment profile.
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_PASSWORD: devonly-postgres
+    ports: ["127.0.0.1:5432:5432"]
+    volumes:
+      - serk-dev-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+volumes:
+  serk-dev-pg:

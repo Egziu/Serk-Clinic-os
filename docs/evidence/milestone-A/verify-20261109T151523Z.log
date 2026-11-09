@@ -1,0 +1,6 @@
+Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 422 ms - Serk.Clinic.ArchitectureTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    71, Skipped:     0, Total:    71, Duration: 1 s - Serk.Clinic.UnitTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    69, Skipped:     0, Total:    69, Duration: 19 s - Serk.Clinic.IntegrationTests.dll (net10.0)
+found 0 vulnerabilities
+found 0 vulnerabilities
+verify: all gates passed

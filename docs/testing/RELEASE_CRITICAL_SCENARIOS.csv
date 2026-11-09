@@ -1,0 +1,45 @@
+ID,Module,Scenario,ReleaseBlocking,RequiredEvidence,Status,Evidence
+IDENT-001,Identity,MFA privileged login,Yes,Integration + E2E,NOT IMPLEMENTED,ADR-0004 (OIDC+MFA required before real data)
+IDENT-002,Identity,Session revocation (logout + admin),Yes,Integration,PASS (automated),AuthTests.Logout_revokes_session; Admin_can_revoke_all_sessions_of_staff_in_own_tenant
+IDENT-003,Identity,Cross-facility affiliation deny,Yes,Integration,PASS (automated),TenantIsolationTests.Cross_facility_encounter_is_not_found
+TENANT-001,Security,Patient/encounter/document ID denied across tenants,Yes,Integration + E2E,PASS (automated),TenantIsolationTests.Cross_tenant_object_access_is_not_found; E2E unrelated-tenant test
+TENANT-002,Security,Search and duplicate check do not leak across tenants,Yes,Integration,PASS (automated),TenantIsolationTests.Search_does_not_leak_across_tenants
+TENANT-003,Security,Pooled connection RLS context fails closed,Yes,Integration,PASS (automated),TenantIsolationTests.Rls_fails_closed_and_context_is_transaction_local; Rls_rejects_cross_tenant_insert
+TENANT-004,Security,Support staff clinical chart deny,Yes,Integration,PASS (automated),TenantIsolationTests.Support_has_no_phi_access
+PAT-001,Patients,New patient with unique MRN,Yes,Integration,PASS (automated),PatientAndSchedulingTests.Registration_assigns_unique_mrn
+PAT-002,Patients,Probable duplicate review (merge NOT implemented),Yes,Integration,PARTIAL — review PASS; merge NOT IMPLEMENTED,PatientAndSchedulingTests.Duplicate_review_flow
+PAT-003,Patients,Guardian access,Yes,Integration,NOT IMPLEMENTED,
+APPT-001,Scheduling,Book and check-in,Yes,Integration + E2E,PASS (automated),PatientAndSchedulingTests.Book_list_check_in; E2E
+APPT-002,Scheduling,Competing double-book race,Yes,Concurrency test,PASS (automated),PatientAndSchedulingTests.Double_booking_race
+APPT-003,Scheduling,Time zone / Ethiopian-Gregorian display,Yes,Unit + E2E,PASS (automated; DST n/a for Africa/Addis_Ababa),EthiopianDateTests; ethiopian.test.ts; E2E E.C. assertion
+EMR-001,Clinical,Draft autosave,Yes,Integration + E2E,PASS (automated),ClinicalRecordTests.Draft_autosave_with_etag
+EMR-002,Clinical,Simultaneous note edit conflict,Yes,Concurrency test,PASS (automated),ClinicalRecordTests.Draft_conflict_detected; ReviewRound1RegressionTests.Draft_save_sign_race
+EMR-003,Clinical,Authorized sign (and unauthorized refused),Yes,Integration + E2E,PASS (automated),ClinicalRecordTests.Authorized_sign; Unauthorized_sign_refused; Expired_license_blocks_sign; E2E
+EMR-004,Clinical,Edit of signed note denied (API + DB),Yes,Negative integration,PASS (automated),ClinicalRecordTests.Signed_note_is_immutable
+EMR-005,Clinical,Attributed addendum preserves prior version,Yes,Integration + E2E,PASS (automated),ClinicalRecordTests.Addendum_preserves_original; E2E
+EMR-006,Clinical,Audit of sensitive read,Yes,Integration,PASS (automated),ClinicalRecordTests.Sensitive_read_audited
+MED-001,Clinical,Allergy display,Yes,E2E,PASS (automated) — clinical review PENDING,E2E banner assertions; HAZ-007/009 tests
+MED-002..005,Medications,Prescription / dispense / lots / dosing,Yes,—,NOT IMPLEMENTED,Milestone D
+LAB-001..003,Labs,Orders / results / critical acknowledgement,Yes,—,NOT IMPLEMENTED,Milestone F
+DENT-001,Dental,FDI tooth mapping (permanent + primary),Yes,Unit + integration,PASS (automated) — clinical review PENDING,DentalDomainTests.Fdi_code_sets; Fdi_names_and_types; DentalTests.Record_and_read_chart
+DENT-002,Dental,Surface edit and historical versions,Yes,Unit + integration,PASS (automated) — clinical review PENDING,DentalDomainTests.Surface_rules; Current_state_and_corrections; DentalTests.Corrections_preserve_history
+DENT-003,Dental,Wrong-tooth confirmation,Yes,Unit + integration + E2E,PASS (automated) — clinical review PENDING,DentalDomainTests.Wrong_tooth_confirmation; DentalTests.Wrong_tooth_rejected; E2E dental.spec.ts
+DENT-004,Dental,Treatment estimate and consent,Yes,—,NOT IMPLEMENTED,Next dental slice
+DERM-001..003; OBGYN-001..003; PEDS-001..003,Specialties,—,Yes,—,NOT IMPLEMENTED,Milestone E
+BILL-001..004,Billing,—,Yes,—,NOT IMPLEMENTED,Milestone D
+DOC-001,Documents,Authenticated preview,Yes,Integration,PASS (automated),DocumentTests.Preview_requires_authorization
+DOC-002,Documents,Final content/version equals preview snapshot,Yes,PDF text + hash comparison,PASS (automated; text-level — pixel visual diff NOT RUN),DocumentTests.Final_matches_preview; unit DocumentRenderingTests
+DOC-003,Documents,Watermark on draft only,Yes,PDF inspection,PASS (automated),DocumentRenderingTests.Preview_is_watermarked_and_final_is_not
+DOC-004,Documents,Download denied across tenant/role,Yes,Negative API,PASS (automated),DocumentTests.Download_denied_across_tenant
+DOC-005,Documents,Print failure cannot be logged as physically printed,Yes,Negative API + E2E,PASS (automated),DocumentTests.Print_status_is_truthful; E2E print note
+OPS-001,Operations,Empty DB migration + repeatable,Yes,Integration,PASS (automated),PlatformReliabilityTests.Migrations_are_idempotent_and_tamper_evident
+OPS-002,Operations,Upgrade with preserved records,Yes,Migration rehearsal on previous snapshot,NOT RUN,
+OPS-003,Operations,Encrypted DB+object+key restore,Yes,Restore drill report,NOT RUN,
+OPS-004,Operations,Worker restart / retry / dead-letter,Yes,Integration,PASS (automated; no process-kill test),PlatformReliabilityTests (3 outbox tests)
+OPS-005,Operations,Clinic LAN during WAN outage,Yes,—,NOT RUN,
+SEC-001,Security,Upload polyglot/malware,Yes,—,NOT APPLICABLE YET (no uploads),
+SEC-002,Security,IDOR/BOLA,Yes,Integration,PASS (automated) for implemented endpoints,TenantIsolationTests; ReviewRound1RegressionTests.Idempotency_replay_bound_to_actor
+SEC-003,Security,Role elevation blocked,Yes,Integration,PASS (automated),Unauthorized_sign_refused; Clinic_admin_cannot_read_charts; Unknown_json_members_rejected
+SEC-004,Security,Redacted logs,Yes,Integration,PASS (automated; single synthetic marker scenario),PlatformReliabilityTests.Logs_do_not_contain_phi
+SEC-005,Security,Break-glass expiry and review,Yes,—,NOT IMPLEMENTED,
+SEC-006,Security,Secrets not exposed,Yes,Secret scan,NOT RUN (no secret scanner installed; manual review only),

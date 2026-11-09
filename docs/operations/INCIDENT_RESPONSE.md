@@ -1,0 +1,2 @@
+# Incident response (draft)
+1. Contain: revoke sessions / disable accounts; isolate host if compromise suspected. 2. Preserve: DB snapshot, object store, JSON logs, `audit.*`. 3. Assess scope via audit (actor, patient_id, correlation_id). 4. Notify per Ethiopian PDPP (Proclamation 1321/2024) and clinic policy — **obligations to be defined by counsel**. 5. Recover from verified backups. 6. Post-incident review.

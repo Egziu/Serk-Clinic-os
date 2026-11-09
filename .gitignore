@@ -1,0 +1,16 @@
+bin/
+obj/
+.local/
+artifacts/
+*.user
+.vs/
+.idea/
+node_modules/
+src/web/dist/
+src/backend/Serk.Clinic.Host/wwwroot/
+test-results/
+playwright-report/
+TestResults/
+*.trx
+.env
+.env.*

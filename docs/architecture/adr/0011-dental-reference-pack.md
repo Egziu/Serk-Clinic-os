@@ -1,0 +1,5 @@
+# ADR-0011 Dental as the reference specialty pack
+- **Status:** Accepted (engineering); clinical content PENDING CLINICIAN REVIEW · **Date:** 2026-11-09
+- **Decision:** Specialty packs live in `src/specialties/*`, own their schema (`dental`), and extend the core encounter only through published contracts (`IEncounterAccess`), never by redefining Patient/Encounter or reading core tables. Dental findings use FDI/ISO 3950 two-digit notation (permanent 11–48, primary 51–85), are append-only (DB trigger, no UPDATE grant), and corrections are new entries referencing the corrected one with a reason. Wrong-tooth prevention requires the tooth number to be entered twice. Recording is limited to the attending dentist of an open encounter; reads are audited.
+- **Not yet:** periodontal chart, treatment plan/estimate/consent (DENT-004), imaging links, material lot consumption, dental print template, age-aware dentition warnings.
+- **Evidence:** DentalDomainTests, DentalTests, E2E `dental.spec.ts`, ModuleBoundaryTests (Dental included; specialty may not reference core internals).

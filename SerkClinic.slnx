@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/backend/">
+    <Project Path="src/backend/Serk.Clinic.Clinical/Serk.Clinic.Clinical.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Documents/Serk.Clinic.Documents.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Host/Serk.Clinic.Host.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Identity/Serk.Clinic.Identity.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Patients/Serk.Clinic.Patients.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Platform/Serk.Clinic.Platform.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Scheduling/Serk.Clinic.Scheduling.csproj" />
+    <Project Path="src/backend/Serk.Clinic.SharedKernel/Serk.Clinic.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/src/specialties/">
+    <Project Path="src/specialties/Serk.Clinic.Dental/Serk.Clinic.Dental.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Serk.Clinic.ArchitectureTests/Serk.Clinic.ArchitectureTests.csproj" />
+    <Project Path="tests/Serk.Clinic.IntegrationTests/Serk.Clinic.IntegrationTests.csproj" />
+    <Project Path="tests/Serk.Clinic.UnitTests/Serk.Clinic.UnitTests.csproj" />
+  </Folder>
+</Solution>
