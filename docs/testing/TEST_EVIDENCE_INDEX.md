@@ -11,3 +11,8 @@
 
 TRX files are produced under `artifacts/` (git-ignored) and uploaded by CI. Screenshots contain synthetic data only.
 CI workflow `.github/workflows/ci.yml` observed passing on GitHub (run #2).
+
+| 2026-11-09 18:06 | branding/automation/analytics commit (see git log) | tools/verify.sh (all CI gates) after review round 2 fixes | 111 unit + 18 architecture + 89 integration passed, 0 failed, 0 skipped; Vitest 17; npm/NuGet 0 vulnerabilities; format + license gates PASS | `docs/evidence/milestone-A/verify-20261109T180627Z.log` |
+| 2026-11-09 18:06 | same | Playwright E2E incl. management (settings, colour, uploads, printers, dashboard light/dark, signature), slip printing, vertical slice | 9/9 passed; axe 0 serious/critical on all audited screens | `docs/evidence/milestone-A/e2e-20261109T180627Z.log`, `screenshots/06-08` |
+| 2026-11-09 (before 18:06) | same | Mutation check of BRAND-005 (removed in-effect filter) | test FAILED on mutant, PASSED on restored code (shows the test is not false-green) | session log (not archived) |
+| 2026-11-09 17:42 | 903e497 + perf tooling | tools/perf.sh latency measurement (synthetic volume) | see report; single machine, loopback, not a load test | `docs/performance/PERF_REPORT.md`, `perf-20261109T174206Z.json` |

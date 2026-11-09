@@ -86,12 +86,17 @@ public sealed class RequestSizeLimitMiddleware(RequestDelegate next)
     }
 }
 
-/// <summary>Adds a W3C Server-Timing header with total server processing time (ms, microsecond resolution) to API responses.</summary>
+/// <summary>
+/// Adds a W3C Server-Timing header with total server processing time to API responses. Not sent on sign-in or public
+/// document verification (precise timings there could help account/reference enumeration), and rounded to 0.1 ms.
+/// </summary>
 public sealed class ServerTimingMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext http)
     {
-        if (!http.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+        if (!http.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
+            || http.Request.Path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase)
+            || http.Request.Path.StartsWithSegments("/api/v1/verify", StringComparison.OrdinalIgnoreCase))
         {
             await next(http);
             return;
@@ -101,7 +106,7 @@ public sealed class ServerTimingMiddleware(RequestDelegate next)
         http.Response.OnStarting(() =>
         {
             var ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-            http.Response.Headers.Append("Server-Timing", "app;dur=" + ms.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+            http.Response.Headers.Append("Server-Timing", "app;dur=" + ms.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
             return Task.CompletedTask;
         });
         await next(http);

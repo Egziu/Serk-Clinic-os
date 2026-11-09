@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, newIdempotencyKey } from "../api/client";
+import { api, fetchPdfUrl, newIdempotencyKey } from "../api/client";
+import { Icon } from "../components/icons";
+import type { Printer } from "./SettingsPage";
 import type { Appointment, DuplicateCandidate, PatientSummary, Practitioner, RegisterResponse, Session } from "../api/types";
 import { ErrorAlert, Field, StatusBadge } from "../components/common";
 import { facilityLocalToUtcIso, formatDualDate, formatTime, localIsoDate } from "../lib/format";
@@ -243,7 +245,43 @@ function TodaysAppointments({ refreshKey, canCheckIn }: { refreshKey: number; ca
   const [confirming, setConfirming] = useState<Appointment | null>(null);
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const printFrame = useRef<HTMLIFrameElement>(null);
+  const [printers, setPrinters] = useState<Printer[]>([]);
+  const [printerId, setPrinterId] = useState("");
+  const [slip, setSlip] = useState<{ url: string; appointmentId: string; patient: string; printer: string } | null>(null);
+  const [printNote, setPrintNote] = useState<string | null>(null);
   const today = localIsoDate(new Date());
+
+  useEffect(() => {
+    api.get<Printer[]>("/api/v1/facility/printers").then((r) => {
+      const slips = r.data.filter((p) => p.purpose === "AppointmentSlips");
+      setPrinters(slips);
+      setPrinterId(slips.find((p) => p.isDefault)?.id ?? slips[0]?.id ?? "");
+    }).catch(() => setPrinters([]));
+  }, []);
+  useEffect(() => () => { if (slip) URL.revokeObjectURL(slip.url); }, [slip]);
+  // Browsers without an inline PDF viewer (or that block it) never fire the frame's load event: offer the slip as a link instead.
+  const [slipFallback, setSlipFallback] = useState(false);
+  useEffect(() => {
+    if (!slip) return;
+    const timer = window.setTimeout(() => setSlipFallback(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, [slip]);
+
+  const printSlip = async (a: Appointment) => {
+    setError(null);
+    const printer = printers.find((p) => p.id === printerId);
+    const paper = printer ? (printer.paper === "A3" ? "A4" : printer.paper) : "Thermal80";
+    try {
+      const r = await fetchPdfUrl(`/api/v1/appointments/${a.id}/slip?paper=${paper}`);
+      // Printing happens in the iframe's onLoad, so it always prints the PDF that was just loaded (never a previous patient's slip).
+      setSlip({ url: r.url, appointmentId: a.id, patient: a.patientDisplayName, printer: printer?.name ?? "a thermal 80 mm printer" });
+      setPrintNote(`Preparing slip for ${a.patientDisplayName}…`);
+      setSlipFallback(false);
+    } catch (err) {
+      setError(err);
+    }
+  };
 
   const load = useCallback(() => {
     api.get<Appointment[]>(`/api/v1/appointments?day=${today}`).then((r) => setItems(r.data)).catch(setError);
@@ -276,6 +314,20 @@ function TodaysAppointments({ refreshKey, canCheckIn }: { refreshKey: number; ca
         <span className="status-line">{formatDualDate(today)}</span>
       </div>
       <ErrorAlert error={error} />
+      <div className="btn-row field">
+        <label htmlFor="slip-printer"><Icon name="printer" size={16} /> Slip printer</label>
+        <select id="slip-printer" value={printerId} onChange={(e) => setPrinterId(e.target.value)}>
+          {printers.length === 0 && <option value="">Thermal 80 mm (default)</option>}
+          {printers.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.kind} {p.paper}</option>)}
+        </select>
+      </div>
+      {printNote && !slipFallback && <p className="alert alert-info" role="status">{printNote}</p>}
+      {slip && slipFallback && (
+        <p className="alert alert-info" role="status">
+          Slip for {slip.patient} is ready, but this browser did not open the print dialog automatically.{" "}
+          <a href={slip.url} target="_blank" rel="noopener">Open the slip to print it</a> on {slip.printer}.
+        </p>
+      )}
       <table aria-label="Today's appointments">
         <thead><tr><th>Time (EAT)</th><th>Patient</th><th>Clinician</th><th>Status</th><th><span className="sr-only">Action</span></th></tr></thead>
         <tbody>
@@ -286,11 +338,22 @@ function TodaysAppointments({ refreshKey, canCheckIn }: { refreshKey: number; ca
               <td>{a.patientDisplayName}<br /><span className="mono">{a.patientMrn}</span></td>
               <td>{a.practitionerDisplayName}</td>
               <td><StatusBadge status={a.status} /></td>
-              <td>{canCheckIn && a.status === "Booked" && <button className="btn" onClick={() => open(a)} aria-label={`Check in ${a.patientDisplayName}`}>Check in</button>}</td>
+              <td className="btn-row">
+                {canCheckIn && a.status === "Booked" && <button className="btn" onClick={() => open(a)} aria-label={`Check in ${a.patientDisplayName}`}>Check in</button>}
+                {(a.status === "Booked" || a.status === "CheckedIn") && <button className="btn" onClick={() => printSlip(a)} aria-label={`Print slip for ${a.patientDisplayName}`}><Icon name="printer" size={16} /> Slip</button>}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {slip && (
+        <iframe key={slip.url} ref={printFrame} className="sr-only" title="Appointment slip for printing" src={slip.url} data-appointment-id={slip.appointmentId}
+          onLoad={() => {
+            setSlipFallback(false);
+            printFrame.current?.contentWindow?.print();
+            setPrintNote(`Print dialog opened for ${slip.patient}'s slip — choose ${slip.printer}. The system cannot confirm paper was printed.`);
+          }} />
+      )}
       <dialog ref={dialogRef} aria-labelledby="checkin-h" onClose={() => setConfirming(null)}>
         {confirming && (
           <>

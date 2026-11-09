@@ -172,4 +172,5 @@ export interface DocumentInfo {
   createdAt: string;
   finalizedAt: string | null;
   pdfSha256: string | null;
+  createdBy?: string;
 }

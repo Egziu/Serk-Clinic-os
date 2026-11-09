@@ -43,3 +43,20 @@ SEC-003,Security,Role elevation blocked,Yes,Integration,PASS (automated),Unautho
 SEC-004,Security,Redacted logs,Yes,Integration,PASS (automated; single synthetic marker scenario),PlatformReliabilityTests.Logs_do_not_contain_phi
 SEC-005,Security,Break-glass expiry and review,Yes,—,NOT IMPLEMENTED,
 SEC-006,Security,Secrets not exposed,Yes,Secret scan,NOT RUN (no secret scanner installed; manual review only),
+BRAND-001,Configuration,Logo/stamp upload; staff view; old asset retired; cross-tenant 404; no-store,Yes,Integration + E2E,PASS (automated),BrandingPrintingAutomationTests.Upload_and_view_branding; e2e management.spec.ts
+BRAND-002,Configuration,Malicious/unsupported images rejected and logged (polyglot SVG palette bad CRC),Yes,Unit + Integration,PASS (automated),BrandingAndPrintingTests.Unsafe_or_unsupported_images_rejected; Bad_uploads_rejected
+BRAND-003,Configuration,Upload authorization + CSRF on multipart,Yes,Integration,PASS (automated),Upload_authorization; Signature_privacy (CSRF on /me/signature)
+BRAND-004,Configuration,Signature image visible only to its owner (not other clinicians reception or branding managers); no-store,Yes,Integration,PASS (automated),Signature_privacy
+BRAND-005,Documents,Signature uploaded after signing never applied to that note,Yes,Integration (mutation-checked),PASS (automated),Late_signature_not_applied (fails when the in-effect filter is removed)
+BRAND-006,Configuration,Concurrent uploads of one slot serialised (one active asset; no 500),Yes,Integration,PASS (automated),Concurrent_logo_uploads
+BRAND-007,Configuration,Stored images metadata-free (EXIF/GPS/comments/text chunks stripped; pixel data inflated with bound),Yes,Unit + Integration,PASS (automated),Png_text_and_exif_chunks_are_stripped_from_stored_bytes; Png_without_pixel_data_or_with_corrupt_pixel_data_is_rejected; Jpeg_comment_and_exif_segments_are_stripped_from_stored_bytes; Upload_strips_metadata
+THEME-001,Configuration,Accent colour >= 4.5:1 on white; derived dark-mode accent >= 4.5:1 on all dark surfaces,Yes,Integration + Vitest + axe,PASS (automated),Accent_colour_settings; src/web/src/lib/theme.test.ts; axe dashboard light/dark
+PRINT-001,Configuration,Printer classification: thermal only for slips; one default per purpose,Yes,Integration + DB CHECK,PASS (automated),Printer_profiles
+PRINT-002,Documents,Appointment slip on Thermal58/Thermal80/A5; audited; other tenant 404; slip print bound to the loaded patient,Yes,Integration + E2E,PASS (automated; real printer output NOT RUN),Appointment_slips; e2e dental.spec.ts slip test
+DOC-BRAND-001,Documents,Branding frozen in snapshot (hash); signature/stamp only on final; A3 default,Yes,Integration,PASS (automated),Branded_document_is_frozen
+DOC-FIN-001,Documents,Finalize only beside visible preview with explicit confirmation naming the patient; no double submit,Yes,E2E,PASS (automated),e2e vertical-slice.spec.ts clinician test
+AUTO-001,Documents,Auto-prepared draft after signing; idempotent; never finalizes,Yes,Integration + E2E,PASS (automated; sequential redelivery only — concurrent-delivery advisory lock NOT separately tested),AUTO-001 integration test; e2e vertical-slice (waits for auto draft)
+AUTO-002,Scheduling,No-show sweeper marks only Booked past grace; audited; idempotent,Yes,Integration,PASS (automated; grace >= 30 min validation and per-tenant failure isolation implemented but NOT separately tested),AUTO-002 integration test
+ANALYTICS-001,Analytics,Statistics correct on known data (Wilson CI medians P90 trend Ethiopian dates); no PHI in output,Yes,Unit + Integration,PASS (automated),StatisticsTests; AnalyticsTests
+ANALYTICS-002,Analytics,Authorization (owner/admin only); small-cell suppression (<5) for demographics; date range bounded (400 not 500),Yes,Integration,PASS (automated),AnalyticsTests; Input_hardening
+HARDEN-001,Platform,Numeric enum values rejected; Server-Timing absent on sign-in and verify,Yes,Integration,PASS (automated),Input_hardening

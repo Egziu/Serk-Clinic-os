@@ -73,18 +73,26 @@ test.describe.serial("Vertical slice: login → registration → appointment →
     await expect(signed.getByText("✓ integrity verified")).toBeVisible();
     await expect(page.getByLabel(/Presenting complaint/)).toHaveCount(0); // no editable draft after signing
 
-    await page.getByRole("button", { name: "Prepare consultation summary (preview)" }).click();
+    // Automation prepares the draft summary after signing (outbox worker); the clinician only reviews and finalizes.
+    const autoRow = page.getByRole("row").filter({ hasText: "Prepared automatically" });
+    await expect(autoRow).toBeVisible({ timeout: 15_000 });
+    // Finalizing is only offered next to the visible preview (no one-click finalize from the list).
+    await expect(autoRow.getByRole("button", { name: /^Finalize/ })).toHaveCount(0);
+    await autoRow.getByRole("button", { name: /^Preview draft/ }).click();
     await expect(page.getByText("Draft preview — watermarked, not valid for clinical or legal use.")).toBeVisible();
     await expect(page.getByTitle("Document preview")).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/03-document-preview.png`, fullPage: true });
 
-    await page.getByRole("button", { name: "Finalize" }).click();
+    let confirmText = "";
+    page.once("dialog", (d) => { confirmText = d.message(); void d.accept(); });
+    await page.getByRole("button", { name: "Finalize this document" }).click();
     await expect(page.getByText("Final document (immutable).")).toBeVisible();
+    expect(confirmText).toContain(given); // the irreversible step names the patient
     await expect(page.getByRole("row").filter({ hasText: "Consultation summary" }).getByText("✓ Final")).toBeVisible();
 
     // The final PDF is served only to the authenticated session, with integrity headers.
     const docs = await page.request.get(`/api/v1/documents?encounterId=${encounterUrl.split("/").pop()}`);
-    const [doc] = (await docs.json()) as { id: string; pdfSha256: string; snapshotSha256: string }[];
+    const doc = ((await docs.json()) as { id: string; status: string; pdfSha256: string; snapshotSha256: string }[]).find((d) => d.status === "Final");
     const pdf = await page.request.get(`/api/v1/documents/${doc!.id}/download`);
     expect(pdf.status()).toBe(200);
     expect(pdf.headers()["content-type"]).toBe("application/pdf");

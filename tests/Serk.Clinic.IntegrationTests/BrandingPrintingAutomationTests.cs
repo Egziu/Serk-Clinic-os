@@ -11,6 +11,9 @@ namespace Serk.Clinic.IntegrationTests;
 [Collection(ApiCollection.Name)]
 public class BrandingPrintingAutomationTests(SerkApiFixture f)
 {
+    /// <summary>Bytes the server stores for a fixture: the metadata-free canonical re-serialisation.</summary>
+    private static byte[] Canonical(string fixture) => Serk.Clinic.Configuration.Domain.ImageInspector.Inspect(ApiClient.Fixture(fixture)).Value.Canonical;
+
     private static async Task<int> SettingsVersion(ApiClient c) =>
         (await c.GetJsonAsync("/api/v1/facility/settings")).GetProperty("version").GetInt32();
 
@@ -37,7 +40,8 @@ public class BrandingPrintingAutomationTests(SerkApiFixture f)
         Assert.Equal(HttpStatusCode.OK, content.StatusCode);
         Assert.Equal("image/png", content.Content.Headers.ContentType!.MediaType);
         Assert.Equal("nosniff", content.Headers.GetValues("X-Content-Type-Options").Single());
-        Assert.Equal(ApiClient.Fixture("logo.png"), await content.Content.ReadAsByteArrayAsync());
+        Assert.Equal(Canonical("logo.png"), await content.Content.ReadAsByteArrayAsync());
+        Assert.Equal("no-store", content.Headers.CacheControl!.ToString());
 
         var second = await ApiClient.Body(await admin.UploadAsync("/api/v1/facility/branding/logo", ApiClient.Fixture("stamp.png"), "x.png", "image/png"));
         Assert.Equal("Retired", await f.OwnerScalarAsync<string>("SELECT status FROM configuration.branding_assets WHERE id=@i", ("i", logoId)));
@@ -82,10 +86,73 @@ public class BrandingPrintingAutomationTests(SerkApiFixture f)
         var id = (await ApiClient.Body(up)).GetProperty("id").GetGuid();
         Assert.Equal(id, (await d.GetJsonAsync("/api/v1/me/signature")).GetProperty("id").GetGuid());
         Assert.Equal(HttpStatusCode.OK, (await d.GetAsync($"/api/v1/branding-assets/{id}/content")).StatusCode);
-        using var hana = await f.LoginAsync(DemoData.Clinician2, DemoData.FacilityABole);
-        Assert.Equal(HttpStatusCode.NotFound, (await hana.GetAsync($"/api/v1/branding-assets/{id}/content")).StatusCode);
+        using var clin = await f.LoginAsync(DemoData.Clinician2, DemoData.FacilityABole);
+        Assert.Equal(HttpStatusCode.NotFound, (await clin.GetAsync($"/api/v1/branding-assets/{id}/content")).StatusCode);
         using var reception = await f.LoginAsync(DemoData.Reception);
         Assert.Equal(HttpStatusCode.NotFound, (await reception.GetAsync($"/api/v1/branding-assets/{id}/content")).StatusCode);
+        // Branding managers cannot download a practitioner's signature either (forgery risk).
+        using var admin = await f.LoginAsync(DemoData.ClinicAdmin);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/v1/branding-assets/{id}/content")).StatusCode);
+        // Signature bytes are never cached by the browser, and the signature upload requires the CSRF header.
+        Assert.Equal("no-store", (await d.GetAsync($"/api/v1/branding-assets/{id}/content")).Headers.CacheControl!.ToString());
+        Assert.Equal(HttpStatusCode.Forbidden, (await d.UploadAsync("/api/v1/me/signature", ApiClient.Fixture("signature.jpg"), "s.jpg", "image/jpeg", includeCsrf: false)).StatusCode);
+    }
+
+    [Fact(DisplayName = "BRAND-005 a signature uploaded after the note was signed is not applied to that note's documents")]
+    public async Task Late_signature_not_applied()
+    {
+        using var clin = await f.LoginAsync(DemoData.Clinician); // the scenario books this attending clinician
+        var s = await Scenario.SignedEncounterAsync(f, clin);
+        var late = await ApiClient.Body(await clin.UploadAsync("/api/v1/me/signature", ApiClient.Fixture("signature-progressive.jpg"), "late.jpg", "image/jpeg"));
+        var lateId = late.GetProperty("id").GetGuid().ToString();
+        var doc = await ApiClient.Body(await clin.SendAsync(HttpMethod.Post, "/api/v1/documents", new { noteVersionId = s.NoteVersionId }));
+        var snapshotSigs = await f.OwnerScalarAsync<string>("SELECT coalesce(snapshot->'branding'->>'signaturesByPractitioner', '') FROM documents.document_versions WHERE id=@d", ("d", doc.GetProperty("id").GetGuid()));
+        Assert.DoesNotContain(lateId, snapshotSigs, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "BRAND-006 concurrent uploads of the same slot are serialised: one active logo, no 500")]
+    public async Task Concurrent_logo_uploads()
+    {
+        using var a1 = await f.LoginAsync(DemoData.ClinicAdmin);
+        using var a2 = await f.LoginAsync(DemoData.ClinicAdmin);
+        var results = await Task.WhenAll(
+            a1.UploadAsync("/api/v1/facility/branding/logo", ApiClient.Fixture("logo.png"), "a.png", "image/png"),
+            a2.UploadAsync("/api/v1/facility/branding/logo", ApiClient.Fixture("stamp.png"), "b.png", "image/png"));
+        Assert.All(results, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        Assert.Equal(1L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM configuration.branding_assets WHERE facility_id=@f AND kind='Logo' AND status='Active'", ("f", DemoData.FacilityABole)));
+    }
+
+    [Fact(DisplayName = "BRAND-007 stored images carry no metadata: EXIF/comment payloads are stripped on upload")]
+    public async Task Upload_strips_metadata()
+    {
+        using var d = await f.LoginAsync(DemoData.Clinician);
+        var jpeg = ApiClient.Fixture("signature.jpg");
+        var payload = System.Text.Encoding.ASCII.GetBytes("Exif\0\0GPSLatitude 9.03 <script>x</script>");
+        byte[] app1 = [0xFF, 0xE1, (byte)((payload.Length + 2) >> 8), (byte)(payload.Length + 2), .. payload];
+        var up = await d.UploadAsync("/api/v1/me/signature", [.. jpeg[..2], .. app1, .. jpeg[2..]], "s.jpg", "image/jpeg");
+        Assert.Equal(HttpStatusCode.Created, up.StatusCode);
+        var stored = await (await d.GetAsync($"/api/v1/branding-assets/{(await ApiClient.Body(up)).GetProperty("id").GetGuid()}/content")).Content.ReadAsByteArrayAsync();
+        var text = System.Text.Encoding.Latin1.GetString(stored);
+        Assert.DoesNotContain("GPSLatitude", text);
+        Assert.DoesNotContain("<script>", text);
+        Assert.Equal(Canonical("signature.jpg"), stored);
+    }
+
+    [Fact(DisplayName = "HARDEN-001 bad inputs give 400 not 500; sign-in and verify responses carry no Server-Timing")]
+    public async Task Input_hardening()
+    {
+        using var owner = await f.LoginAsync(DemoData.Owner);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync("/api/v1/analytics/overview?from=0001-01-01&to=0001-01-05")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync("/api/v1/analytics/overview?from=9999-12-25&to=9999-12-31")).StatusCode);
+        Assert.True((await owner.GetAsync("/api/v1/analytics/overview")).Headers.Contains("Server-Timing"));
+        using var admin = await f.LoginAsync(DemoData.ClinicAdmin);
+        var r = await admin.SendAsync(HttpMethod.Post, "/api/v1/facility/printers", new { name = "Bad", paper = 99, purpose = "AppointmentSlips" });
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        using var anon = f.Client();
+        var login = await anon.SendAsync(HttpMethod.Post, "/api/v1/auth/login", new { username = "nobody", password = "wrong-password-123" });
+        Assert.False(login.Headers.Contains("Server-Timing"));
+        var verify = await anon.GetAsync("/api/v1/verify/NOPE-0000");
+        Assert.False(verify.Headers.Contains("Server-Timing"));
     }
 
     [Fact(DisplayName = "THEME-001 accent colour validated for contrast; optimistic concurrency on settings")]
@@ -131,7 +198,8 @@ public class BrandingPrintingAutomationTests(SerkApiFixture f)
     {
         var (admin, _) = await UploadBrandingAsync();
         using var d = await f.LoginAsync(DemoData.Clinician);
-        await d.UploadAsync("/api/v1/me/signature", ApiClient.Fixture("signature.jpg"), "sig.jpg", "image/jpeg");
+        var sigUp = await d.UploadAsync("/api/v1/me/signature", ApiClient.Fixture("signature.jpg"), "sig.jpg", "image/jpeg");
+        Assert.True(sigUp.StatusCode == HttpStatusCode.Created, await sigUp.Content.ReadAsStringAsync());
         var v = await SettingsVersion(admin);
         Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(HttpMethod.Put, "/api/v1/facility/settings", new { defaultClinicalPaper = "A3" }, ifMatch: $"\"v{v}\"")).StatusCode);
         try
@@ -154,7 +222,7 @@ public class BrandingPrintingAutomationTests(SerkApiFixture f)
             Assert.Equal(4, fp.GetPages().Sum(p => p.GetImages().Count()));  // logo + signature + stamp + QR
             Assert.Equal(2, pp.GetPages().Sum(p => p.GetImages().Count()));  // logo + QR (no signature/stamp on preview)
             Assert.Equal(frozenLogoSha, await f.OwnerScalarAsync<string>("SELECT snapshot->'branding'->'logo'->>'sha256' FROM documents.document_versions WHERE id=@d", ("d", docId)));
-            Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(ApiClient.Fixture("logo.png"))), frozenLogoSha);
+            Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Canonical("logo.png"))), frozenLogoSha);
         }
         finally
         {

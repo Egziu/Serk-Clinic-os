@@ -72,7 +72,7 @@ public static partial class AccentColor
         return (0.2126 * Channel(0)) + (0.7152 * Channel(1)) + (0.0722 * Channel(2));
     }
 
-    [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
+    [GeneratedRegex(@"^#[0-9a-fA-F]{6}\z")]
     private static partial Regex HexPattern();
 }
 

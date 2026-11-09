@@ -27,11 +27,25 @@ PDFs and their hashes; audit trail; staff credentials and sessions; tenant bound
 | **D**enial of service | Login flood; huge bodies | Per-IP rate limit (login, verify); 1 MB body cap enforced server-independently; pagination caps | AuthTests, Request_limits | Per-IP limits collapse behind a proxy without ForwardedHeaders (open) |
 | **E**levation of privilege | Reception signs; admin reads notes; replay another user's idempotent result | Capability checks per endpoint; ABAC (facility, attending clinician, licence validity, active affiliation); clinic admin has no clinical capability; support account has no affiliation; idempotency replay bound to actor; mass-assignment guard (unknown JSON members rejected) | Unauthorized_sign_refused, Clinic_admin_cannot_read_charts, Support_has_no_phi_access, Idempotency_replay_bound_to_actor, Unknown_json_members_rejected | Break-glass not implemented (SEC-005 NOT IMPLEMENTED) |
 
+## Branding uploads, printing, automation and analytics (added 2026-11-09)
+
+| Threat | Example | Controls implemented | Evidence | Residual / open |
+|---|---|---|---|---|
+| Malicious image upload | HTML/JS polyglot, SVG script, decompression bomb, CMYK/palette edge cases | Allow-list PNG (8-bit RGB/RGBA, non-interlaced) and baseline/progressive JPEG; 512 KB, 16–4096 px, ≤ 4 MP; PNG CRCs + pixel data inflated with a hard bound to exactly the declared size; full JPEG marker walk to EOI (≤ 32 scans); no trailing bytes; **stored bytes are a canonical re-serialisation without any metadata/comment chunks**; served only as sniffed type with nosniff and `no-store`; rejections logged as security events | BRAND-002, BRAND-007 | No full pixel decode/re-encode (structure-level canonicalisation only); no AV scanning |
+| Information disclosure via image metadata | EXIF GPS, author, XMP in a logo/signature, copied into patient PDFs | All APPn (except a standard Adobe APP14), COM, tEXt/iTXt/zTXt/eXIf and other ancillary chunks dropped before storage | BRAND-007 | — |
+| Signature forgery / misuse | Colleague downloads another clinician's signature; signature applied to notes signed before it existed | Signature content only to its owner (not branding managers); `no-store`; snapshot freezes only the signature **in effect at signing time**; preview never shows it | BRAND-004, BRAND-005 | Any reader of a final PDF can extract the embedded image — **legal decision pending** on signature images in patient copies |
+| CSRF on multipart | Cross-site form upload | Session CSRF header required (antiforgery middleware disabled only in favour of the existing header check) | BRAND-003 | — |
+| Race / integrity | Parallel uploads; duplicate outbox delivery creating two drafts | Transaction-scoped advisory locks per asset slot and per note version | BRAND-006, AUTO-001 | Object written before commit can be orphaned on rollback (storage GC open) |
+| Automation privilege | Outbox handler acting as a user | System actor limited to `document.create/read`, new DI scope per message, tenant from the event, audited | AUTO-001 | — |
+| Cross-tenant background job | No-show sweeper | Per-tenant transaction with transaction-local RLS context and explicit tenant predicate; failures isolated per tenant; grace ≥ 30 min enforced | AUTO-002 | Sweeper bypasses the Scheduling aggregate and emits no domain event (open) |
+| Re-identification via analytics | 1-day range shows a single registration by sex/age | `security_invoker` PHI-free fact views; demographic counts 1–4 suppressed; range bounded (2000…today+1y, ≤ 366 days); audited | ANALYTICS-002 | Heatmap counts not suppressed (operational, no demographics); complementary disclosure not modelled; no per-user rate limit on analytics/uploads (open) |
+| Timing side channel | Server-Timing on sign-in | Header omitted on `/api/v1/auth/*` and `/api/v1/verify/*`; 0.1 ms resolution elsewhere | HARDEN-001 | — |
+
 ## Attackers considered
 Internet users (anonymous verify endpoint, login), curious insiders (search, duplicate probe — now audited), rogue tenant
 (tenant B staff), compromised workstation (session revocation), malicious tools/plugins (no PHI to tools; synthetic data
 only), CI compromise (pinned SDK/lockfiles, locked restore; signed artifacts **not yet**).
 
 ## Not yet in scope (explicitly)
-Uploads/malware scanning, payment webhooks, break-glass, MFA/OIDC, backup encryption & key recovery, DAST, container
+Malware/AV scanning of uploads, payment webhooks, break-glass, MFA/OIDC, backup encryption & key recovery, DAST, container
 scanning, SBOM publication (license inventory exists: docs/security/THIRD_PARTY_NUGET.md).

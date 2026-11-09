@@ -6,14 +6,24 @@ import { LoginPage } from "./pages/LoginPage";
 import { ReceptionPage } from "./pages/ReceptionPage";
 import { WorklistPage } from "./pages/WorklistPage";
 import { EncounterPage } from "./pages/EncounterPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { SettingsPage, type FacilitySettings } from "./pages/SettingsPage";
+import { SignaturePage } from "./pages/SignaturePage";
+import { Icon } from "./components/icons";
+import { applyAccent, applyThemePreference, loadThemePreference, type ThemePreference } from "./lib/theme";
 
-export type Route = { name: "home" } | { name: "reception" } | { name: "worklist" } | { name: "encounter"; id: string };
+export type Route =
+  | { name: "home" } | { name: "reception" } | { name: "worklist" } | { name: "encounter"; id: string }
+  | { name: "dashboard" } | { name: "settings" } | { name: "signature" };
 
 function parseRoute(): Route {
   const m = window.location.pathname.match(/^\/encounters\/([0-9a-f-]{36})$/i);
   if (m) return { name: "encounter", id: m[1]! };
   if (window.location.pathname.startsWith("/worklist")) return { name: "worklist" };
   if (window.location.pathname.startsWith("/reception")) return { name: "reception" };
+  if (window.location.pathname.startsWith("/dashboard")) return { name: "dashboard" };
+  if (window.location.pathname.startsWith("/settings")) return { name: "settings" };
+  if (window.location.pathname.startsWith("/signature")) return { name: "signature" };
   return { name: "home" };
 }
 
@@ -24,6 +34,18 @@ function routeToPath(r: Route): string {
 export function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [route, setRoute] = useState<Route>(parseRoute);
+  const [theme, setTheme] = useState<ThemePreference>(loadThemePreference);
+  const [facility, setFacility] = useState<FacilitySettings | null>(null);
+
+  useEffect(() => applyThemePreference(theme), [theme]);
+
+  // Clinic branding (accent colour + logo) once a facility is active.
+  useEffect(() => {
+    if (!session?.activeAffiliationId) return;
+    api.get<FacilitySettings>("/api/v1/facility/settings")
+      .then((r) => { setFacility(r.data); applyAccent(r.data.accentColor); })
+      .catch(() => { /* branding is cosmetic; defaults remain */ });
+  }, [session?.activeAffiliationId]);
 
   const navigate = useCallback((r: Route) => {
     window.history.pushState(null, "", routeToPath(r));
@@ -59,10 +81,24 @@ export function App() {
 
   const can = (cap: string) => session.capabilities.includes(cap);
   const affiliation = session.affiliations.find((a) => a.id === session.activeAffiliationId);
-  // Landing page follows the role's primary task: clinical staff -> worklist, front desk -> reception.
-  const effectiveRoute: Route =
-    route.name === "home" ? (can("clinical.encounter.read") ? { name: "worklist" } : { name: "reception" })
-      : route.name === "reception" && !can("patient.search") ? { name: "worklist" } : route;
+  // Landing page follows the role's primary task: management -> dashboard, clinical staff -> worklist, front desk -> reception.
+  const home: Route = can("clinical.encounter.read") ? { name: "worklist" } : can("patient.search") ? { name: "reception" } : can("analytics.read") ? { name: "dashboard" } : { name: "settings" };
+  const allowed = (r: Route): boolean =>
+    r.name === "reception" ? can("patient.search")
+      : r.name === "worklist" || r.name === "encounter" ? can("clinical.encounter.read")
+      : r.name === "dashboard" ? can("analytics.read")
+      : r.name === "settings" ? can("branding.manage") || can("printers.manage")
+      : r.name === "signature" ? can("clinical.note.sign")
+      : true;
+  const effectiveRoute: Route = route.name === "home" || !allowed(route) ? home : route;
+  const navItems: { route: Route; label: string; icon: string; show: boolean }[] = [
+    { route: { name: "dashboard" }, label: "Dashboard", icon: "dashboard", show: can("analytics.read") },
+    { route: { name: "reception" }, label: t("reception"), icon: "reception", show: can("patient.search") },
+    { route: { name: "worklist" }, label: t("worklist"), icon: "worklist", show: can("clinical.encounter.read") },
+    { route: { name: "signature" }, label: "My signature", icon: "signature", show: can("clinical.note.sign") },
+    { route: { name: "settings" }, label: "Settings", icon: "settings", show: can("branding.manage") || can("printers.manage") },
+  ];
+  const isCurrent = (r: Route) => effectiveRoute.name === r.name || (r.name === "worklist" && effectiveRoute.name === "encounter");
 
   const logout = async () => {
     try {
@@ -79,22 +115,18 @@ export function App() {
       <div className="synthetic-banner" role="note">{t("syntheticBanner")}</div>
       <div className="shell">
         <nav className="shell-nav" aria-label="Primary">
-          <div className="brand">{t("appName")}</div>
+          <div className="brand">
+            {facility?.logo ? <img src={`/api/v1/branding-assets/${facility.logo.id}/content`} alt="" /> : null}
+            <span>{t("appName")}</span>
+          </div>
           <ul>
-            {can("patient.search") && (
-              <li>
-                <button aria-current={effectiveRoute.name === "reception" ? "page" : undefined} onClick={() => navigate({ name: "reception" })}>
-                  {t("reception")}
+            {navItems.filter((n) => n.show).map((n) => (
+              <li key={n.route.name}>
+                <button aria-current={isCurrent(n.route) ? "page" : undefined} onClick={() => navigate(n.route)}>
+                  <Icon name={n.icon} /> {n.label}
                 </button>
               </li>
-            )}
-            {can("clinical.encounter.read") && (
-              <li>
-                <button aria-current={effectiveRoute.name === "worklist" || effectiveRoute.name === "encounter" ? "page" : undefined} onClick={() => navigate({ name: "worklist" })}>
-                  {t("worklist")}
-                </button>
-              </li>
-            )}
+            ))}
           </ul>
         </nav>
         <div className="shell-main">
@@ -106,16 +138,21 @@ export function App() {
               <span className="context">
                 Signed in as <strong>{session.displayName}</strong> ({affiliation?.roles.join(", ")})
               </span>
-              <button className="btn" onClick={logout}>{t("signOut")}</button>
+              <div className="theme-switch" role="group" aria-label="Colour theme">
+                {([["light", "sun", "Light theme"], ["dark", "moon", "Dark theme"], ["system", "monitor", "Use system theme"]] as const).map(([v, icon, label]) => (
+                  <button key={v} type="button" aria-pressed={theme === v} aria-label={label} title={label} onClick={() => setTheme(v)}><Icon name={icon} size={16} /></button>
+                ))}
+              </div>
+              <button className="btn" onClick={logout}><Icon name="logout" size={16} /> {t("signOut")}</button>
             </div>
           </header>
           <main id="main" tabIndex={-1}>
-            {effectiveRoute.name === "reception" && can("patient.search") && <ReceptionPage session={session} />}
+            {effectiveRoute.name === "reception" && <ReceptionPage session={session} />}
             {effectiveRoute.name === "worklist" && <WorklistPage onOpen={(id) => navigate({ name: "encounter", id })} />}
             {effectiveRoute.name === "encounter" && <EncounterPage id={effectiveRoute.id} session={session} onBack={() => navigate({ name: "worklist" })} />}
-            {effectiveRoute.name === "reception" && !can("patient.search") && !can("clinical.encounter.read") && (
-              <div className="alert alert-info">Your role has no clinical or front-desk workspace in this version.</div>
-            )}
+            {effectiveRoute.name === "dashboard" && <DashboardPage />}
+            {effectiveRoute.name === "settings" && <SettingsPage canBrand={can("branding.manage")} canPrinters={can("printers.manage")} onSettingsChanged={setFacility} />}
+            {effectiveRoute.name === "signature" && <SignaturePage />}
           </main>
         </div>
       </div>

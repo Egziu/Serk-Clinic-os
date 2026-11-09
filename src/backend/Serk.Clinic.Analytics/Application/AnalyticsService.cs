@@ -21,7 +21,17 @@ public sealed record HeatCell(int IsoWeekday, int Hour, int Count);
 
 public sealed record ClinicianLoad(Guid PractitionerId, string Name, int Encounters, int Signed, double? MedianMinutesToSign);
 
-public sealed record Bucket(string Label, int Count);
+/// <summary>
+/// Demographic count. Counts of 1-4 are suppressed (Count = null, Suppressed = true) so that a narrow date range cannot be
+/// used to single out an individual registration from sex/age combinations (small-cell suppression, threshold 5).
+/// </summary>
+public sealed record Bucket(string Label, int? Count, bool Suppressed)
+{
+    public const int SmallCellThreshold = 5;
+
+    public static Bucket Of(string label, int count) =>
+        count is > 0 and < SmallCellThreshold ? new Bucket(label, null, true) : new Bucket(label, count, false);
+}
 
 public sealed record AnalyticsOverview(
     DateOnly From,
@@ -53,6 +63,7 @@ public sealed record AnalyticsOverview(
 public sealed class AnalyticsService(DbSession session, RequestContext context, IStaffDirectory staff, AuditTrail audit, TimeProvider clock)
 {
     public const int MaxRangeDays = 366;
+    public static readonly DateOnly MinDate = new(2000, 1, 1);
     private static readonly string[] Sexes = ["Female", "Male", "Other", "Unknown"];
     private static readonly string[] AgeBands = ["0-4", "5-14", "15-24", "25-44", "45-64", "65+"];
     private static readonly Guid AutomationUserId = Guid.Parse("00000000-0000-7000-8000-00000000a070");
@@ -67,6 +78,12 @@ public sealed class AnalyticsService(DbSession session, RequestContext context, 
         var today = BusinessTime.LocalDate(clock.GetUtcNow(), zone);
         var end = to ?? today;
         var start = from ?? end.AddDays(-29);
+        // Bounded calendar window: rejects extreme dates (which would overflow date arithmetic) before any query runs.
+        if (start < MinDate || end > today.AddDays(366))
+        {
+            return Error.Validation("invalid_range", $"Dates must be between {MinDate:yyyy-MM-dd} and one year from today.");
+        }
+
         if (start > end || end.DayNumber - start.DayNumber + 1 > MaxRangeDays)
         {
             return Error.Validation("invalid_range", $"Choose a range of 1 to {MaxRangeDays} days with 'from' before 'to'.");
@@ -182,6 +199,7 @@ public sealed class AnalyticsService(DbSession session, RequestContext context, 
         }
 
         var bySex = new List<Bucket>();
+        var newPatientsTotal = 0;
         var byAge = new Dictionary<string, int>(StringComparer.Ordinal);
         await using (var cmd = Cmd(
             """
@@ -203,7 +221,8 @@ public sealed class AnalyticsService(DbSession session, RequestContext context, 
                 byAge[r.GetString(1)] = byAge.GetValueOrDefault(r.GetString(1)) + r.GetInt32(2);
             }
 
-            bySex.AddRange(Sexes.Select(s => new Bucket(s, sexCounts.GetValueOrDefault(s))));
+            newPatientsTotal = sexCounts.Values.Sum();
+            bySex.AddRange(Sexes.Select(s => Bucket.Of(s, sexCounts.GetValueOrDefault(s))));
         }
 
         int finalized, autoPrepared;
@@ -250,9 +269,9 @@ public sealed class AnalyticsService(DbSession session, RequestContext context, 
             cancelled,
             leadDays,
             toSign,
-            bySex.Sum(b => b.Count),
+            newPatientsTotal,
             bySex,
-            AgeBands.Select(b => new Bucket(b, byAge.GetValueOrDefault(b))).ToList(),
+            AgeBands.Select(b => Bucket.Of(b, byAge.GetValueOrDefault(b))).ToList(),
             finalized,
             autoPrepared,
             Statistics.LinearTrend(totals),

@@ -81,6 +81,19 @@ export const api = {
   put: <T>(url: string, body: unknown, opts: Omit<RequestOptions, "body"> = {}) => request<T>("PUT", url, { ...opts, body }),
 };
 
+/** Multipart upload of a single file in the "file" field (CSRF header included). */
+export async function uploadFile<T>(url: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  const res = await fetch(url, { method: "POST", body: form, headers, credentials: "same-origin" });
+  const text = await res.text();
+  const json: unknown = text ? safeParse(text) : null;
+  if (!res.ok) throw toError(res.status, json);
+  return json as T;
+}
+
 /** Fetches a PDF as a blob URL (authenticated, never a public URL). Caller must revoke it. */
 export async function fetchPdfUrl(url: string): Promise<{ url: string; snapshotSha256: string | null }> {
   const res = await fetch(url, { credentials: "same-origin" });

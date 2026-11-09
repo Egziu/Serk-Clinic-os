@@ -1,0 +1,130 @@
+  Determining projects to restore...
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Platform/Serk.Clinic.Platform.csproj (in 1.37 sec).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Patients/Serk.Clinic.Patients.csproj (in 1.37 sec).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Scheduling/Serk.Clinic.Scheduling.csproj (in 1.37 sec).
+  Restored /home/user/Serk-Clinic-os/tests/Serk.Clinic.ArchitectureTests/Serk.Clinic.ArchitectureTests.csproj (in 1.38 sec).
+  Restored /home/user/Serk-Clinic-os/tests/Serk.Clinic.UnitTests/Serk.Clinic.UnitTests.csproj (in 15 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.SharedKernel/Serk.Clinic.SharedKernel.csproj (in 8 ms).
+  Restored /home/user/Serk-Clinic-os/src/specialties/Serk.Clinic.Dental/Serk.Clinic.Dental.csproj (in 383 ms).
+  Restored /home/user/Serk-Clinic-os/tests/Serk.Clinic.IntegrationTests/Serk.Clinic.IntegrationTests.csproj (in 41 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Identity/Serk.Clinic.Identity.csproj (in 8 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Configuration/Serk.Clinic.Configuration.csproj (in 4 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Clinical/Serk.Clinic.Clinical.csproj (in 5 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Host/Serk.Clinic.Host.csproj (in 17 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Documents/Serk.Clinic.Documents.csproj (in 13 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Analytics/Serk.Clinic.Analytics.csproj (in 9 ms).
+  Serk.Clinic.SharedKernel -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.SharedKernel/bin/Release/net10.0/Serk.Clinic.SharedKernel.dll
+  Serk.Clinic.Platform -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Platform/bin/Release/net10.0/Serk.Clinic.Platform.dll
+  Serk.Clinic.Configuration -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Configuration/bin/Release/net10.0/Serk.Clinic.Configuration.dll
+  Serk.Clinic.Identity -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Identity/bin/Release/net10.0/Serk.Clinic.Identity.dll
+  Serk.Clinic.Patients -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Patients/bin/Release/net10.0/Serk.Clinic.Patients.dll
+  Serk.Clinic.Clinical -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Clinical/bin/Release/net10.0/Serk.Clinic.Clinical.dll
+  Serk.Clinic.Analytics -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Analytics/bin/Release/net10.0/Serk.Clinic.Analytics.dll
+  Serk.Clinic.Scheduling -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Scheduling/bin/Release/net10.0/Serk.Clinic.Scheduling.dll
+  Serk.Clinic.Dental -> /home/user/Serk-Clinic-os/src/specialties/Serk.Clinic.Dental/bin/Release/net10.0/Serk.Clinic.Dental.dll
+  Serk.Clinic.Documents -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Documents/bin/Release/net10.0/Serk.Clinic.Documents.dll
+  Serk.Clinic.UnitTests -> /home/user/Serk-Clinic-os/tests/Serk.Clinic.UnitTests/bin/Release/net10.0/Serk.Clinic.UnitTests.dll
+  Serk.Clinic.Host -> /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Host/bin/Release/net10.0/Serk.Clinic.Host.dll
+  Serk.Clinic.ArchitectureTests -> /home/user/Serk-Clinic-os/tests/Serk.Clinic.ArchitectureTests/bin/Release/net10.0/Serk.Clinic.ArchitectureTests.dll
+  Serk.Clinic.IntegrationTests -> /home/user/Serk-Clinic-os/tests/Serk.Clinic.IntegrationTests/bin/Release/net10.0/Serk.Clinic.IntegrationTests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.69
+  Determining projects to restore...
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.SharedKernel/Serk.Clinic.SharedKernel.csproj (in 182 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Analytics/Serk.Clinic.Analytics.csproj (in 345 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Identity/Serk.Clinic.Identity.csproj (in 120 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Host/Serk.Clinic.Host.csproj (in 17 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Configuration/Serk.Clinic.Configuration.csproj (in 3 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Documents/Serk.Clinic.Documents.csproj (in 16 ms).
+  Restored /home/user/Serk-Clinic-os/tests/Serk.Clinic.UnitTests/Serk.Clinic.UnitTests.csproj (in 397 ms).
+  Restored /home/user/Serk-Clinic-os/tests/Serk.Clinic.IntegrationTests/Serk.Clinic.IntegrationTests.csproj (in 400 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Clinical/Serk.Clinic.Clinical.csproj (in 3 ms).
+  Restored /home/user/Serk-Clinic-os/src/specialties/Serk.Clinic.Dental/Serk.Clinic.Dental.csproj (in 4 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Scheduling/Serk.Clinic.Scheduling.csproj (in 5 ms).
+  Restored /home/user/Serk-Clinic-os/tests/Serk.Clinic.ArchitectureTests/Serk.Clinic.ArchitectureTests.csproj (in 19 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Platform/Serk.Clinic.Platform.csproj (in 3 ms).
+  Restored /home/user/Serk-Clinic-os/src/backend/Serk.Clinic.Patients/Serk.Clinic.Patients.csproj (in 3 ms).
+
+The following sources were used:
+   https://api.nuget.org/v3/index.json
+
+The given project `Serk.Clinic.Analytics` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Clinical` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Configuration` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Documents` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Host` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Identity` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Patients` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Platform` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Scheduling` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.SharedKernel` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.Dental` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.ArchitectureTests` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.IntegrationTests` has no vulnerable packages given the current sources.
+The given project `Serk.Clinic.UnitTests` has no vulnerable packages given the current sources.
+Test run for /home/user/Serk-Clinic-os/tests/Serk.Clinic.ArchitectureTests/bin/Release/net10.0/Serk.Clinic.ArchitectureTests.dll (.NETCoreApp,Version=v10.0)
+Test run for /home/user/Serk-Clinic-os/tests/Serk.Clinic.IntegrationTests/bin/Release/net10.0/Serk.Clinic.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+VSTest version 18.0.2 (x64)
+
+Test run for /home/user/Serk-Clinic-os/tests/Serk.Clinic.UnitTests/bin/Release/net10.0/Serk.Clinic.UnitTests.dll (.NETCoreApp,Version=v10.0)
+VSTest version 18.0.2 (x64)
+
+VSTest version 18.0.2 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+Starting test execution, please wait...
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 691 ms - Serk.Clinic.ArchitectureTests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   111, Skipped:     0, Total:   111, Duration: 1 s - Serk.Clinic.UnitTests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    89, Skipped:     0, Total:    89, Duration: 26 s - Serk.Clinic.IntegrationTests.dll (net10.0)
+
+added 184 packages, and audited 185 packages in 9s
+
+found 0 vulnerabilities
+found 0 vulnerabilities
+
+> serk-clinic-web@0.1.0 lint
+> eslint . --max-warnings=0
+
+
+> serk-clinic-web@0.1.0 typecheck
+> tsc -b --pretty false
+
+
+> serk-clinic-web@0.1.0 test
+> vitest run
+
+
+ RUN  v5.1.0 /home/user/Serk-Clinic-os/src/web
+
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  18:06:12
+   Duration  210ms (tests 47%, transform 35%, import 14%, worker 4%)
+
+
+> serk-clinic-web@0.1.0 build
+> tsc -b && vite build
+
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 33 modules transformed.
+rendering chunks...
+computing gzip size...
+../backend/Serk.Clinic.Host/wwwroot/index.html                   0.45 kB │ gzip:  0.28 kB
+../backend/Serk.Clinic.Host/wwwroot/assets/index-DYR0q1Kl.css   14.16 kB │ gzip:  3.58 kB
+../backend/Serk.Clinic.Host/wwwroot/assets/index-ydZEfjcC.js   298.84 kB │ gzip: 90.02 kB
+
+✓ built in 139ms
+verify: all gates passed

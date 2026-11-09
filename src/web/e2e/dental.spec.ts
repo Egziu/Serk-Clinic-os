@@ -4,6 +4,8 @@ import { eatTimeSoon, expectNoSeriousA11yViolations, login, SHOTS } from "./help
 const suffix = Date.now().toString(36).slice(-5);
 const given = `Dentpt${suffix}`;
 
+test.describe.configure({ mode: "serial" });
+
 test("dentist charts a surface finding by keyboard with wrong-tooth confirmation", async ({ page, browser }) => {
   // Reception: register and book with the dentist, then check in.
   const rctx = await browser.newContext();
@@ -47,6 +49,7 @@ test("dentist charts a surface finding by keyboard with wrong-tooth confirmation
 
   await page.getByLabel(/Confirm tooth number/).fill("36");
   await page.getByRole("button", { name: "Record finding" }).click();
+  // Headless Chromium has no inline PDF viewer, so the fallback link path is the one exercised here.
   await expect(page.getByRole("status").filter({ hasText: "Recorded Caries on tooth 36" })).toBeVisible();
   await expect(page.getByRole("button", { name: "36 C: lower left first molar, Caries (Mesial, Occlusal)" })).toBeVisible();
   await expect(page.getByRole("table", { name: "Current dental findings" })).toContainText("36 lower left first molar");
@@ -57,4 +60,23 @@ test("dentist charts a surface finding by keyboard with wrong-tooth confirmation
 
   await page.getByLabel(/Primary \(51–85\)/).check();
   await expect(page.getByRole("button", { name: /^55: no finding recorded/ })).toBeVisible();
+});
+
+test("reception prints an appointment slip on the default thermal printer", async ({ page }) => {
+  await login(page, "reception.a");
+  const row = page.getByRole("row").filter({ hasText: given });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: /Print slip/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: new RegExp(`(Print dialog opened for ${given}.*slip|Slip for ${given}.* is ready)`) })).toBeVisible();
+  const appts = (await (await page.request.get("/api/v1/appointments")).json()) as { id: string; patientDisplayName: string }[];
+  const appt = appts.find((a) => a.patientDisplayName.startsWith(given))!;
+  // The print frame holds this patient's slip (printing is triggered by that frame's own load event).
+  await expect(page.locator("iframe[title='Appointment slip for printing']")).toHaveAttribute("data-appointment-id", appt.id);
+  for (const [paper, widthPt] of [["Thermal58", 164], ["Thermal80", 227], ["A5", 420]] as const) {
+    const pdf = await page.request.get(`/api/v1/appointments/${appt.id}/slip?paper=${paper}`);
+    expect(pdf.status()).toBe(200);
+    const text = (await pdf.body()).toString("latin1");
+    const box = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)/.exec(text);
+    expect(Math.round(Number(box?.[1]))).toBe(widthPt);
+  }
 });

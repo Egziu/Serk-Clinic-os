@@ -14,6 +14,9 @@ public sealed class NoShowOptions
 
     /// <summary>Time after the appointment END before a still-booked appointment is marked NoShow (pilot default 2 h).</summary>
     public TimeSpan Grace { get; set; } = TimeSpan.FromHours(2);
+
+    /// <summary>Lower bound enforced at startup and per sweep: a zero/negative grace would mark future appointments.</summary>
+    public static readonly TimeSpan MinimumGrace = TimeSpan.FromMinutes(30);
 }
 
 /// <summary>
@@ -33,10 +36,37 @@ public sealed class NoShowSweeper(NpgsqlDataSource dataSource, IServiceScopeFact
             tenants = await scope.ServiceProvider.GetRequiredService<IStaffDirectory>().ListTenantIdsAsync(ct);
         }
 
+        if (options.Value.Grace < NoShowOptions.MinimumGrace)
+        {
+            throw new InvalidOperationException("No-show grace is below the 30-minute minimum; refusing to sweep.");
+        }
+
         var now = clock.GetUtcNow();
         var cutoff = now - options.Value.Grace;
         var total = 0;
         foreach (var tenant in tenants)
+        {
+            try
+            {
+                total += await SweepTenantAsync(tenant, now, cutoff, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // One failing tenant must not stop the others; its transaction rolled back and is retried next interval.
+                logger.LogError(ex, "No-show sweep failed for one tenant; continuing with the rest.");
+            }
+        }
+
+        if (total > 0)
+        {
+            logger.LogInformation("No-show sweep marked {Count} appointments.", total);
+        }
+
+        return total;
+    }
+
+    private async Task<int> SweepTenantAsync(Guid tenant, DateTimeOffset now, DateTimeOffset cutoff, CancellationToken ct)
+    {
         {
             await using var conn = await dataSource.OpenConnectionAsync(ct);
             await using var tx = await conn.BeginTransactionAsync(ct);
@@ -86,15 +116,8 @@ public sealed class NoShowSweeper(NpgsqlDataSource dataSource, IServiceScopeFact
             }
 
             await tx.CommitAsync(ct);
-            total += changed.Count;
+            return changed.Count;
         }
-
-        if (total > 0)
-        {
-            logger.LogInformation("No-show sweep marked {Count} appointments.", total);
-        }
-
-        return total;
     }
 }
 

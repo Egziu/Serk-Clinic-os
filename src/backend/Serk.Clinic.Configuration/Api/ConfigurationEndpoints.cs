@@ -62,7 +62,8 @@ public static class ConfigurationEndpoints
         app.MapGet("/api/v1/branding-assets/{id:guid}/content", async (Guid id, ConfigurationService service, HttpResponse response, CancellationToken ct) =>
             (await service.GetContentAsync(id, ct)).ToHttp(c =>
             {
-                response.Headers.CacheControl = "private, max-age=300";
+                // no-store: a signature (or any asset) must not stay in a shared workstation's browser cache after sign-out.
+                response.Headers.CacheControl = "no-store";
                 response.Headers.ETag = "\"" + c.Sha256 + "\"";
                 response.Headers.ContentDisposition = "inline";
                 return Results.Bytes(c.Bytes, c.ContentType);

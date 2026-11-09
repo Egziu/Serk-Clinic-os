@@ -39,7 +39,7 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
         var db = await session.ContextAsync<ConfigurationDbContext>(ct);
         var row = await db.Settings.AsNoTracking().SingleOrDefaultAsync(s => s.FacilityId == actor.FacilityId && s.TenantId == actor.TenantId, ct)
             ?? new FacilitySettingsRow { FacilityId = actor.FacilityId, TenantId = actor.TenantId, Version = 0 };
-        var assets = await ActiveFacilityAssetsAsync(db, actor.FacilityId, ct);
+        var assets = await ActiveFacilityAssetsAsync(db, actor.TenantId, actor.FacilityId, ct);
         return ToDto(row, assets);
     }
 
@@ -95,7 +95,7 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
             ["defaultClinicalPaper"] = row.DefaultClinicalPaper,
             ["autoPrepareDocuments"] = row.AutoPrepareDocuments.ToString(),
         }), ct);
-        var dto = ToDto(row, await ActiveFacilityAssetsAsync(db, actor.FacilityId, ct));
+        var dto = ToDto(row, await ActiveFacilityAssetsAsync(db, actor.TenantId, actor.FacilityId, ct));
         try
         {
             await session.CommitAsync(ct);
@@ -125,6 +125,9 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
         }
 
         var db = await session.ContextAsync<ConfigurationDbContext>(ct);
+        // Serialise concurrent uploads of the same asset slot (retire-then-insert would otherwise race on the unique index).
+        var slot = kind == BrandingAssetKind.Signature ? $"branding:{actor.TenantId:N}:sig:{actor.PractitionerId:N}" : $"branding:{actor.TenantId:N}:{actor.FacilityId:N}:{kind}";
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({slot}, 0))", ct);
         var now = clock.GetUtcNow();
         var existing = kind == BrandingAssetKind.Signature
             ? await db.Assets.Where(a => a.TenantId == actor.TenantId && a.Kind == kind && a.PractitionerId == actor.PractitionerId && a.Status == "Active").ToListAsync(ct)
@@ -149,8 +152,8 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
             Kind = kind,
             PractitionerId = kind == BrandingAssetKind.Signature ? actor.PractitionerId : null,
             ContentType = info.ContentType,
-            Sha256 = CanonicalJson.Sha256Hex(bytes),
-            SizeBytes = bytes.Length,
+            Sha256 = CanonicalJson.Sha256Hex(info.Canonical),
+            SizeBytes = info.Canonical.Length,
             Width = info.Width,
             Height = info.Height,
             ObjectKey = key,
@@ -159,7 +162,7 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
             UploadedAt = now,
         };
         db.Assets.Add(row);
-        await objects.PutAsync(key, bytes, ct);
+        await objects.PutAsync(key, info.Canonical, ct); // metadata-free re-serialisation, never the raw upload
         await audit.RecordAsync(new AuditEntry("branding.upload", "branding_asset", id, Metadata: new Dictionary<string, string> { ["kind"] = kind.ToString(), ["sha256"] = row.Sha256 }), ct);
         await session.CommitAsync(ct);
         return ToAssetDto(row);
@@ -179,15 +182,15 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
     }
 
     /// <summary>
-    /// Logo/stamp images are visible to any member of the facility. Signature images (forgery risk) only to their owner
-    /// and to branding managers. Responses are private, no-store, nosniff.
+    /// Logo/stamp images are visible to any member of the facility. Signature images (forgery risk) only to their owner;
+    /// branding managers cannot download other practitioners' signatures. Responses are no-store, nosniff.
     /// </summary>
     public async Task<Result<AssetContent>> GetContentAsync(Guid assetId, CancellationToken ct)
     {
         var actor = context.RequireActor();
         var db = await session.ContextAsync<ConfigurationDbContext>(ct);
         var row = await db.Assets.AsNoTracking().SingleOrDefaultAsync(a => a.Id == assetId && a.TenantId == actor.TenantId && a.FacilityId == actor.FacilityId, ct);
-        if (row is null || (row.Kind == BrandingAssetKind.Signature && row.PractitionerId != actor.PractitionerId && !actor.Has(Capabilities.BrandingManage)))
+        if (row is null || (row.Kind == BrandingAssetKind.Signature && row.PractitionerId != actor.PractitionerId))
         {
             return Error.NotFound();
         }
@@ -282,16 +285,20 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
         var tenant = context.EffectiveTenantId ?? throw new InvalidOperationException("Tenant context required.");
         var db = await session.ContextAsync<ConfigurationDbContext>(ct);
         var row = await db.Settings.AsNoTracking().SingleOrDefaultAsync(s => s.FacilityId == facilityId && s.TenantId == tenant, ct);
-        var assets = await ActiveFacilityAssetsAsync(db, facilityId, ct);
+        var assets = await ActiveFacilityAssetsAsync(db, tenant, facilityId, ct);
         AssetRef? Ref(BrandingAssetKind k) => assets.TryGetValue(k, out var a) ? new AssetRef(a.Id, a.Sha256, a.ContentType) : null;
         return new FacilityBranding(row?.AccentColor ?? AccentColor.Default, Ref(BrandingAssetKind.Logo), Ref(BrandingAssetKind.Stamp), row?.DefaultClinicalPaper ?? "A4", row?.AutoPrepareDocuments ?? true);
     }
 
-    public async Task<AssetRef?> GetActiveSignatureAsync(Guid practitionerId, CancellationToken ct)
+    public async Task<AssetRef?> GetSignatureInEffectAsync(Guid practitionerId, DateTimeOffset signedAtUtc, CancellationToken ct)
     {
         var tenant = context.EffectiveTenantId ?? throw new InvalidOperationException("Tenant context required.");
         var db = await session.ContextAsync<ConfigurationDbContext>(ct);
-        var a = await db.Assets.AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenant && x.Kind == BrandingAssetKind.Signature && x.PractitionerId == practitionerId && x.Status == "Active", ct);
+        var a = await db.Assets.AsNoTracking()
+            .Where(x => x.TenantId == tenant && x.Kind == BrandingAssetKind.Signature && x.PractitionerId == practitionerId
+                && x.UploadedAt <= signedAtUtc && (x.RetiredAt == null || x.RetiredAt > signedAtUtc))
+            .OrderByDescending(x => x.UploadedAt)
+            .FirstOrDefaultAsync(ct);
         return a is null ? null : new AssetRef(a.Id, a.Sha256, a.ContentType);
     }
 
@@ -309,8 +316,8 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
         return await objects.GetVerifiedAsync(row.ObjectKey, row.Sha256, ct);
     }
 
-    private static async Task<Dictionary<BrandingAssetKind, BrandingAssetRow>> ActiveFacilityAssetsAsync(ConfigurationDbContext db, Guid facilityId, CancellationToken ct) =>
-        (await db.Assets.AsNoTracking().Where(a => a.FacilityId == facilityId && a.Status == "Active" && a.Kind != BrandingAssetKind.Signature).ToListAsync(ct))
+    private static async Task<Dictionary<BrandingAssetKind, BrandingAssetRow>> ActiveFacilityAssetsAsync(ConfigurationDbContext db, Guid tenantId, Guid facilityId, CancellationToken ct) =>
+        (await db.Assets.AsNoTracking().Where(a => a.TenantId == tenantId && a.FacilityId == facilityId && a.Status == "Active" && a.Kind != BrandingAssetKind.Signature).ToListAsync(ct))
         .ToDictionary(a => a.Kind);
 
     private static FacilitySettingsDto ToDto(FacilitySettingsRow row, Dictionary<BrandingAssetKind, BrandingAssetRow> assets) =>

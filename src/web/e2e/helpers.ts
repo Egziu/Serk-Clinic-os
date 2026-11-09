@@ -16,6 +16,7 @@ export async function login(page: Page, username: string): Promise<void> {
 export async function expectNoSeriousA11yViolations(page: Page, context: string): Promise<void> {
   const results = await new AxeBuilder({ page: page as never }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  if (process.env.SERK_AXE_DEBUG) for (const v of serious) for (const n of v.nodes.slice(0, 20)) console.error(`[axe] ${v.id} ${n.target.join(" ")} :: ${n.failureSummary?.replace(/\s+/g, " ").slice(0, 220)}`);
   expect(serious.map((v) => `${context}: ${v.id} (${v.nodes.length}) ${v.help}`)).toEqual([]);
 }
 

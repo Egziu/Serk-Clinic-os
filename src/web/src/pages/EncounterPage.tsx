@@ -5,6 +5,8 @@ import { AllergyBadge, ErrorAlert, Field, StatusBadge } from "../components/comm
 import { formatDualDate, formatDualInstant, shortHash } from "../lib/format";
 import { DentalChart } from "./DentalChart";
 
+const AUTOMATION_ID = "00000000-0000-7000-8000-00000000a070";
+
 type SaveState = "saved" | "dirty" | "saving" | "conflict" | "error";
 
 const SECTIONS: { key: keyof NoteContent; label: string; required?: boolean; max: number }[] = [
@@ -318,7 +320,9 @@ function AllergyPanel({ patient, onChanged }: { patient: PatientBanner; onChange
 function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: EncounterDetail; canCreate: boolean; canFinalize: boolean }) {
   const [docs, setDocs] = useState<DocumentInfo[]>([]);
   const [preview, setPreview] = useState<{ url: string; doc: DocumentInfo; kind: "preview" | "final" } | null>(null);
-  const [paper, setPaper] = useState("A4");
+  const [finalizing, setFinalizing] = useState(false);
+  const patientName = `${encounter.patient.displayName} (MRN ${encounter.patient.mrn})`;
+  const [paper, setPaper] = useState("default");
   const [error, setError] = useState<unknown>(null);
   const [printNote, setPrintNote] = useState<string | null>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -334,7 +338,10 @@ function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: Enco
 
   const versionCount = encounter.signedVersions.length;
   useEffect(() => {
-    api.get<DocumentInfo[]>(`/api/v1/documents?encounterId=${encounter.id}`).then((r) => setDocs(r.data)).catch(setError);
+    const fetchDocs = () => api.get<DocumentInfo[]>(`/api/v1/documents?encounterId=${encounter.id}`).then((r) => setDocs(r.data)).catch(setError);
+    void fetchDocs();
+    const timer = window.setInterval(() => void fetchDocs(), 5000); // picks up drafts prepared by automation
+    return () => window.clearInterval(timer);
   }, [encounter.id, versionCount]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
@@ -352,7 +359,7 @@ function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: Enco
 
   const create = async () => {
     try {
-      const r = await api.post<DocumentInfo>("/api/v1/documents", { noteVersionId: latestVersion.id, paperSize: paper });
+      const r = await api.post<DocumentInfo>("/api/v1/documents", { noteVersionId: latestVersion.id, paperSize: paper === "default" ? null : paper });
       await load();
       await show(r.data, "preview");
     } catch (err) {
@@ -361,12 +368,18 @@ function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: Enco
   };
 
   const finalize = async (doc: DocumentInfo) => {
+    if (finalizing) return;
+    // Finalizing is irreversible: it is only offered beside the visible preview, and needs an explicit confirmation.
+    if (!window.confirm(`Finalize consultation summary ${doc.verificationRef} for ${patientName}? The final document cannot be changed afterwards.`)) return;
+    setFinalizing(true);
     try {
       const r = await api.post<DocumentInfo>(`/api/v1/documents/${doc.id}/finalize`, undefined, { idempotencyKey: newIdempotencyKey() });
       await load();
       await show(r.data, "final");
     } catch (err) {
       setError(err);
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -387,10 +400,12 @@ function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: Enco
       <ErrorAlert error={error} />
       {canCreate && (
         <div className="btn-row field">
-          <label htmlFor="paper" className="sr-only">Paper size</label>
+          <label htmlFor="paper">Paper size</label>
           <select id="paper" value={paper} onChange={(e) => setPaper(e.target.value)}>
+            <option value="default">Clinic default paper</option>
             <option value="A4">A4</option>
             <option value="A5">A5</option>
+            <option value="A3">A3</option>
           </select>
           <button className="btn" onClick={create}>Prepare consultation summary (preview)</button>
         </div>
@@ -401,12 +416,11 @@ function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: Enco
           {docs.length === 0 && <tr><td colSpan={3} className="muted">No documents yet.</td></tr>}
           {docs.map((d) => (
             <tr key={d.id}>
-              <td>Consultation summary v{d.templateVersion} · {d.paperSize}<br /><span className="mono muted">ref {d.verificationRef}</span></td>
+              <td>Consultation summary v{d.templateVersion} · {d.paperSize}{d.createdBy === AUTOMATION_ID && <> · <span className="badge badge-neutral">Prepared automatically</span></>}<br /><span className="mono muted">ref {d.verificationRef}</span></td>
               <td><StatusBadge status={d.status} /></td>
               <td className="btn-row">
-                {d.status === "Draft" && <button className="btn" onClick={() => show(d, "preview")}>Preview</button>}
-                {d.status === "Draft" && canFinalize && <button className="btn btn-primary" onClick={() => finalize(d)}>Finalize</button>}
-                {d.status === "Final" && <button className="btn" onClick={() => show(d, "final")}>Open final</button>}
+                {d.status === "Draft" && <button className="btn" onClick={() => show(d, "preview")} aria-label={`Preview draft ${d.verificationRef}`}>Preview{canFinalize ? " to finalize" : ""}</button>}
+                {d.status === "Final" && <button className="btn" onClick={() => show(d, "final")} aria-label={`Open final ${d.verificationRef}`}>Open final</button>}
               </td>
             </tr>
           ))}
@@ -417,6 +431,9 @@ function DocumentsPanel({ encounter, canCreate, canFinalize }: { encounter: Enco
           <p className={preview.kind === "preview" ? "alert alert-warning" : "alert alert-info"} role="status">
             {preview.kind === "preview" ? "Draft preview — watermarked, not valid for clinical or legal use." : "Final document (immutable)."} Snapshot <span className="mono">{shortHash(preview.doc.snapshotSha256)}</span>
           </p>
+          {preview.kind === "preview" && preview.doc.status === "Draft" && canFinalize && (
+            <div className="btn-row field"><button className="btn btn-primary" onClick={() => finalize(preview.doc)} disabled={finalizing} aria-busy={finalizing}>{finalizing ? "Finalizing…" : "Finalize this document"}</button></div>
+          )}
           {preview.kind === "final" && <div className="btn-row field"><button className="btn" onClick={print}>Print…</button></div>}
           {printNote && <p className="alert alert-info" role="status">{printNote}</p>}
           <iframe ref={frameRef} className="pdf-frame" title={preview.kind === "preview" ? "Document preview" : "Final document"} src={preview.url} />

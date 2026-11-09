@@ -95,8 +95,17 @@ public class AnalyticsTests(SerkApiFixture f)
         Assert.Equal(6, heat.Sum(c => c.GetProperty("count").GetInt32()));
         Assert.Contains(heat, c => c.GetProperty("hour").GetInt32() == 9);
         Assert.Equal(2, o.GetProperty("newPatients").GetInt32());
-        Assert.Equal(1, o.GetProperty("newPatientsByAgeBand").Items().Single(b => b.GetProperty("label").GetString() == "0-4").GetProperty("count").GetInt32());
-        Assert.Equal(1, o.GetProperty("newPatientsByAgeBand").Items().Single(b => b.GetProperty("label").GetString() == "25-44").GetProperty("count").GetInt32());
+        // Small-cell suppression: single registrations are not disclosed by age band or sex; empty buckets show 0.
+        foreach (var band in new[] { "0-4", "25-44" })
+        {
+            var b = o.GetProperty("newPatientsByAgeBand").Items().Single(x => x.GetProperty("label").GetString() == band);
+            Assert.True(b.GetProperty("suppressed").GetBoolean());
+            Assert.Equal(System.Text.Json.JsonValueKind.Null, b.GetProperty("count").ValueKind);
+        }
+
+        var empty = o.GetProperty("newPatientsByAgeBand").Items().Single(x => x.GetProperty("label").GetString() == "65+");
+        Assert.Equal(0, empty.GetProperty("count").GetInt32());
+        Assert.All(o.GetProperty("newPatientsBySex").Items(), b => Assert.True(b.GetProperty("suppressed").GetBoolean() || b.GetProperty("count").GetInt32() is 0 or >= 5));
         var clinician = Assert.Single(o.GetProperty("clinicians").Items());
         Assert.Equal(4, clinician.GetProperty("signed").GetInt32());
 

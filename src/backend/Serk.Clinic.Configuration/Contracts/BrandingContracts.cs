@@ -10,7 +10,11 @@ public interface IBrandingReader
 {
     Task<FacilityBranding> GetFacilityBrandingAsync(Guid facilityId, CancellationToken ct);
 
-    Task<AssetRef?> GetActiveSignatureAsync(Guid practitionerId, CancellationToken ct);
+    /// <summary>
+    /// The practitioner's signature image that was in effect at <paramref name="signedAtUtc"/> (uploaded at or before that
+    /// moment and not yet retired). A signature uploaded after a note was signed is never applied to that note.
+    /// </summary>
+    Task<AssetRef?> GetSignatureInEffectAsync(Guid practitionerId, DateTimeOffset signedAtUtc, CancellationToken ct);
 
     /// <summary>Returns the asset bytes after verifying they still hash to <see cref="AssetRef.Sha256"/>.</summary>
     Task<byte[]> ReadAssetAsync(AssetRef asset, CancellationToken ct);

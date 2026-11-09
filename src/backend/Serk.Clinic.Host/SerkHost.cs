@@ -81,11 +81,13 @@ public static class SerkHost
         builder.Services.Configure<DocumentOptions>(config.GetSection("Documents"));
 
         builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule().AddConfigurationModule().AddAnalyticsModule();
-        builder.Services.Configure<Serk.Clinic.Scheduling.Application.NoShowOptions>(config.GetSection("Scheduling:NoShow"));
+        builder.Services.AddOptions<Serk.Clinic.Scheduling.Application.NoShowOptions>().Bind(config.GetSection("Scheduling:NoShow"))
+            .Validate(o => o.Grace >= Serk.Clinic.Scheduling.Application.NoShowOptions.MinimumGrace && o.Interval >= TimeSpan.FromSeconds(10), "Scheduling:NoShow:Grace must be at least 30 minutes and Interval at least 10 seconds.")
+            .ValidateOnStart();
 
         builder.Services.ConfigureHttpJsonOptions(o =>
         {
-            o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false)); // enums only by name
             o.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow; // mass-assignment guard
         });
         builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>

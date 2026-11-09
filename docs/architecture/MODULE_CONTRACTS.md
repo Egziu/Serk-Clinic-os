@@ -20,3 +20,17 @@ for the facility name. Module code never queries another module's tables.
 
 **Cross-module synchronous call:** check-in (Scheduling) starts the encounter via `IEncounterLauncher` in the same
 transaction; Clinical verifies the caller holds `appointment.checkin`.
+
+## Added 2026-11-09: Configuration, Analytics, automation
+
+| Module | Schema | Owns | Publishes | Consumes |
+|---|---|---|---|---|
+| Configuration | `configuration` | facility settings (accent colour, default clinical paper A3/A4/A5, auto-prepare flag), branding assets (logo, stamp, per-practitioner signature; canonical metadata-free bytes + SHA-256), printer profiles (Standard/Thermal × paper × purpose) | `IBrandingReader` (`GetFacilityBrandingAsync`, `GetSignatureInEffectAsync(practitioner, signedAtUtc)`, hash-verified `ReadAssetAsync`) | `IStaffDirectory` |
+| Analytics | — (reads PHI-free `security_invoker` views `scheduling.v_appointment_facts`, `clinical.v_encounter_facts`, `patients.v_registration_facts`, `documents.v_document_facts`) | none (read-only aggregates) | `GET /api/v1/analytics/overview`, `/daily.csv` | `IStaffDirectory` |
+
+* Scheduling publishes `IAppointmentReader` (used by Documents for appointment slips).
+* Documents freezes a `BrandingBlock` (accent, logo/stamp `AssetRef`, signatures in effect at signing) into the snapshot.
+* Outbox event `clinical.note-signed.v1` payload is now `{ encounterId, noteVersionId, facilityId, actorUserId, occurredAt }`;
+  consumed by `AutoPrepareSummaryHandler` (Documents), which only creates a watermarked draft.
+* The fact views are the deliberate SQL-level read contract for analytics (ADR-0012); they expose no names, MRNs or
+  free text, and RLS of the underlying tables applies to the caller (`security_invoker`).

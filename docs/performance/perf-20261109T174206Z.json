@@ -1,0 +1,176 @@
+{
+  "measuredAtUtc": "2026-11-09T17:43:39.041Z",
+  "base": "http://localhost:5080",
+  "iterations": 300,
+  "concurrency": 8,
+  "results": [
+    {
+      "name": "Health (liveness)",
+      "path": "/health/live",
+      "n": 300,
+      "serverMs": {
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "clientMs": {
+        "p50": 3.825,
+        "p95": 5.011,
+        "p99": 7.134
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 18.447,
+        "throughputRps": 796.157
+      }
+    },
+    {
+      "name": "Patient search (name prefix, 20k patients)",
+      "path": "/api/v1/patients?query=Hiwot%20vol12",
+      "n": 300,
+      "serverMs": {
+        "p50": 9.82,
+        "p95": 12.926,
+        "p99": 14.723
+      },
+      "clientMs": {
+        "p50": 10.467,
+        "p95": 14.016,
+        "p99": 15.951
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 38.645,
+        "throughputRps": 309.101
+      }
+    },
+    {
+      "name": "Patient search (MRN exact)",
+      "path": "/api/v1/patients?query=MRN-V012345",
+      "n": 300,
+      "serverMs": {
+        "p50": 8.766,
+        "p95": 12.168,
+        "p99": 16.449
+      },
+      "clientMs": {
+        "p50": 9.5,
+        "p95": 13.2,
+        "p99": 17.292
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 31.951,
+        "throughputRps": 353.039
+      }
+    },
+    {
+      "name": "Patient record (demographics + audit write)",
+      "path": "/api/v1/patients/a3f30483-1f05-4b1d-aa7d-68d31b8d12f0",
+      "n": 300,
+      "serverMs": {
+        "p50": 4.847,
+        "p95": 6.961,
+        "p99": 10.506
+      },
+      "clientMs": {
+        "p50": 5.473,
+        "p95": 7.851,
+        "p99": 11.165
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 18.834,
+        "throughputRps": 598.484
+      }
+    },
+    {
+      "name": "Day list (appointments)",
+      "path": "/api/v1/appointments",
+      "n": 300,
+      "serverMs": {
+        "p50": 4.884,
+        "p95": 8.06,
+        "p99": 12.973
+      },
+      "clientMs": {
+        "p50": 5.503,
+        "p95": 9.081,
+        "p99": 14.786
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 32.02,
+        "throughputRps": 378.455
+      }
+    },
+    {
+      "name": "Encounter open (banner + audit write)",
+      "path": "/api/v1/encounters/4b489f45-7194-46b0-a72f-69f1ebab0f99",
+      "n": 300,
+      "serverMs": {
+        "p50": 6.494,
+        "p95": 9.841,
+        "p99": 11.511
+      },
+      "clientMs": {
+        "p50": 7.052,
+        "p95": 10.524,
+        "p99": 12.257
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 29.771,
+        "throughputRps": 356.847
+      }
+    },
+    {
+      "name": "Analytics overview 30 days",
+      "path": "/api/v1/analytics/overview",
+      "n": 300,
+      "serverMs": {
+        "p50": 26.048,
+        "p95": 34.625,
+        "p99": 36.96
+      },
+      "clientMs": {
+        "p50": 26.798,
+        "p95": 36.041,
+        "p99": 38.308
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 79.404,
+        "throughputRps": 141.098
+      }
+    },
+    {
+      "name": "Analytics overview 365 days (35k appointments)",
+      "path": "/api/v1/analytics/overview?from=2025-11-09",
+      "n": 300,
+      "serverMs": {
+        "p50": 122.912,
+        "p95": 149.468,
+        "p99": 168.948
+      },
+      "clientMs": {
+        "p50": 124.483,
+        "p95": 150.87,
+        "p99": 173.701
+      },
+      "concurrent": {
+        "clients": 8,
+        "n": 304,
+        "p95ClientMs": 376.429,
+        "throughputRps": 29.299
+      }
+    }
+  ]
+}

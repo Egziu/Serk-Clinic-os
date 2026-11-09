@@ -4,35 +4,41 @@ _Last updated: 2026-11-09 (UTC) by the implementing agent. Statuses use: Impleme
 
 ```text
 SERK CLINIC OS — IMPLEMENTATION & VERIFICATION REPORT
-Version / commit: branch claude/modest-pascal-x3qzg9 — f5e7c21 (slice), 3fc3f90 (review round 1 + UI), dental commit (see git log)
-Milestone / module: Milestone A + first vertical slice; review round 1 remediation; Dental reference pack v0.1 (FDI findings)
-Implementation: src/backend/*, src/specialties/Serk.Clinic.Dental, database/migrations/0001-0008, src/web (React+TS SPA incl.
-  odontogram), tests/*, tools/verify.sh (CI-equivalent gates), tools/e2e.sh, .github/workflows/ci.yml
-Build: PASS — tools/verify.sh: locked restore, format verify, Release build 0 warnings, exit 0 (verify-20261109T151523Z.log)
-Unit tests: 71 passed / 0 failed / 0 skipped (.NET) + 9 passed (Vitest)
-Integration tests: 69 passed / 0 failed / 0 skipped on PostgreSQL 16.6 (Testcontainers); architecture 18 passed
-E2E & accessibility: PASS — Playwright 5/5 (slice + dental) on built SPA + API + PostgreSQL at 1366x768;
-  axe WCAG A/AA 0 serious/critical on login, reception, encounter (draft/signed), dental chart. Automated subset only;
-  manual screen-reader and zoom testing NOT RUN. Screenshots: docs/evidence/milestone-A/screenshots/
-Security: NuGet + npm audits 0 known vulnerabilities (documented pins/overrides); license guard PASS;
-  AI security review round 1: High/Medium findings fixed with regression tests, several Low items open;
-  SAST NOT RUN, secret scan NOT RUN, DAST NOT RUN, penetration test NOT RUN; MFA NOT IMPLEMENTED (blocker)
-CI: run #1 (3fc3f90) FAILED at format check (my omission); fixed + tools/verify.sh added.
-  run #2 (dd88759) PASS on GitHub Actions — backend (locked restore, format, build, vuln scan, all .NET tests on
-  PostgreSQL 16 service), web (audit, lint, typecheck, Vitest, build), e2e (Playwright 5/5) — 2026-11-09 15:21 UTC
-  https://github.com/Egziu/Serk-Clinic-os/actions/runs/42643113858
+Version / commit: branch claude/modest-pascal-x3qzg9 — f5e7c21 (slice), 3fc3f90 (review 1 + UI), dd88759 (dental),
+  903e497 (configuration/analytics/automation backend), then the UI + review round 2 commit (see git log)
+Milestone / module: Milestone A slice; Dental reference pack v0.1; Management features: branding (colour picker, logo,
+  stamp, signature uploads), printer classes (Standard A3/A4/A5, Thermal 58/80 mm), appointment slips, automation
+  (auto-prepared draft summary, no-show sweeper), analytics dashboard (charts, Wilson CI, trend, percentiles, heatmap,
+  workload, demographics with small-cell suppression, CSV), light/dark/system themes, Server-Timing
+Implementation: src/backend/* (+ Serk.Clinic.Configuration, Serk.Clinic.Analytics), database/migrations/0001-0010,
+  src/web (Dashboard, Settings, Signature pages; SVG charts; theme), tools/verify.sh, tools/e2e.sh, tools/perf.sh
+Build: PASS — tools/verify.sh: locked restore, format verify, Release build 0 warnings, license gate, exit 0
+  (docs/evidence/milestone-A/verify-20261109T180627Z.log)
+Unit tests: 111 passed / 0 failed / 0 skipped (.NET) + 17 passed (Vitest)
+Integration tests: 89 passed / 0 failed / 0 skipped on PostgreSQL 16 (Testcontainers); architecture 18 passed
+E2E & accessibility: PASS — Playwright 9/9 (vertical slice, dental, slip printing, management: settings/colour/uploads/
+  printers, dashboard light+dark, signature) at 1366x768; axe WCAG A/AA 0 serious/critical on audited screens.
+  Manual screen-reader, 200% zoom and real printer output NOT RUN. (docs/evidence/milestone-A/e2e-20261109T180627Z.log)
+Performance: measured on one 4-vCPU machine over loopback with synthetic volume (20k patients, 35k appointments):
+  server p50 ≈ 5–10 ms for search/record/encounter/day list; analytics 30 d ≈ 26 ms, 12 months ≈ 123 ms.
+  Microsecond responses are not achievable for database-backed requests; not a load/concurrency test.
+  (docs/performance/PERF_REPORT.md)
+Security: NuGet + npm audits 0 known vulnerabilities; license guard PASS; AI security review round 2: 3 Medium +
+  6 Low findings fixed with regression tests (one mutation-checked); open: per-user rate limits on analytics/uploads,
+  orphan object GC, legal decision on signature images in patient copies (docs/reviews/2026-11-09-review-round-2.md).
+  SAST, secret scan, DAST, penetration test NOT RUN; MFA NOT IMPLEMENTED (blocker)
+CI: run #2 (dd88759) PASS on GitHub Actions. This commit: see GitHub Actions after push (recorded below when observed).
 Migrations / recovery: empty-DB migration + idempotent re-run + tamper detection PASS (integration);
   upgrade-from-previous-snapshot NOT RUN; backup/restore/key recovery NOT RUN
-Clinical review: PENDING — no licensed clinician has reviewed anything (incl. dental vocabulary and rules)
-Legal/regulatory review: PENDING — no compliance claimed
+Clinical review: PENDING — nothing reviewed by a licensed clinician (incl. automation, no-show grace, hazard entries
+  HAZ-031..036, dental vocabulary)
+Legal/regulatory review: PENDING — no compliance claimed; signature-image use in patient copies needs a decision
 Deployment: LOCAL only; no staging or production exists
 Known blockers / risks (ranked):
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed
-     (hazard register: 30 entries, many open/partial)  4. Open AI-review items (composite FKs, outbox RLS/worker role,
-     identity column grants, forwarded headers/HSTS, EF-schema drift test, list-read auditing)
-  5. Dental: DENT-004 estimate/consent, periodontal chart, age-aware dentition, print template not implemented
-Next task: Dental treatment plan with phased estimate and consent capture (DENT-004), then a second independent
-  review round covering the dental pack; then Dermatology (consent-governed photos) per MASTER_BUILD_PROMPT §4 E.
+  4. Open review items (rate limits, composite FKs, outbox RLS/worker role, identity grants, forwarded headers/HSTS)
+  5. Dental DENT-004 (estimate/consent) not implemented
+Next task: DENT-004 treatment plan + consent; per-user rate limiting; then Dermatology per MASTER_BUILD_PROMPT §4 E.
 ```
 
 ## How to resume

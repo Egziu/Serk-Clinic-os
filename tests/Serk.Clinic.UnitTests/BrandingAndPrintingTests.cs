@@ -20,7 +20,82 @@ public class BrandingAndPrintingTests
     {
         var r = ImageInspector.Inspect(Fixture(file));
         Assert.True(r.IsSuccess, r.Error?.Message);
-        Assert.Equal(new ImageInfo(type, w, h), r.Value);
+        Assert.Equal((type, w, h), (r.Value.ContentType, r.Value.Width, r.Value.Height));
+        // The canonical form is itself a valid image of the same size, and canonicalising is idempotent.
+        var again = ImageInspector.Inspect(r.Value.Canonical);
+        Assert.True(again.IsSuccess, again.Error?.Message);
+        Assert.Equal(r.Value.Canonical, again.Value.Canonical);
+    }
+
+    // ----- canonicalisation / hidden-payload cases built from the valid fixtures -----
+
+    private static byte[] PngChunk(string type, byte[] body)
+    {
+        var chunk = new byte[12 + body.Length];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(chunk, (uint)body.Length);
+        System.Text.Encoding.ASCII.GetBytes(type).CopyTo(chunk, 4);
+        body.CopyTo(chunk, 8);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(chunk.AsSpan(8 + body.Length), ImageInspector.Crc32(chunk.AsSpan(4, 4 + body.Length)));
+        return chunk;
+    }
+
+    /// <summary>Inserts a chunk straight after IHDR (offset 33).</summary>
+    private static byte[] WithChunkAfterIhdr(byte[] png, byte[] chunk) => [.. png[..33], .. chunk, .. png[33..]];
+
+    [Fact]
+    public void Png_text_and_exif_chunks_are_stripped_from_stored_bytes()
+    {
+        var payload = System.Text.Encoding.ASCII.GetBytes("Comment\0<script>alert(1)</script> GPS 9.03N 38.74E");
+        var dirty = WithChunkAfterIhdr(WithChunkAfterIhdr(Fixture("logo.png"), PngChunk("tEXt", payload)), PngChunk("eXIf", [0x4D, 0x4D, 0, 42]));
+        var r = ImageInspector.Inspect(dirty);
+        Assert.True(r.IsSuccess, r.Error?.Message);
+        var stored = System.Text.Encoding.Latin1.GetString(r.Value.Canonical);
+        Assert.DoesNotContain("tEXt", stored);
+        Assert.DoesNotContain("eXIf", stored);
+        Assert.DoesNotContain("<script>", stored);
+    }
+
+    [Fact]
+    public void Png_without_pixel_data_or_with_corrupt_pixel_data_is_rejected()
+    {
+        var png = Fixture("logo.png");
+        var iend = PngChunk("IEND", []);
+        // Header + IEND only (valid CRCs, no IDAT).
+        Assert.Equal("malformed_image", ImageInspector.Inspect([.. png[..33], .. iend]).Error!.Code);
+        // Valid CRC, but the zlib stream is garbage.
+        Assert.Equal("malformed_image", ImageInspector.Inspect([.. png[..33], .. PngChunk("IDAT", [0x78, 0x9C, 0xFF, 0xFF, 0xFF, 0x00, 0x13]), .. iend]).Error!.Code);
+        // Valid zlib stream that inflates to far more data than the header declares (bomb shape).
+        var bomb = new MemoryStream();
+        using (var z = new System.IO.Compression.ZLibStream(bomb, System.IO.Compression.CompressionLevel.SmallestSize, leaveOpen: true))
+        {
+            z.Write(new byte[8 * 1024 * 1024]);
+        }
+
+        Assert.Equal("malformed_image", ImageInspector.Inspect([.. png[..33], .. PngChunk("IDAT", bomb.ToArray()), .. iend]).Error!.Code);
+    }
+
+    [Fact]
+    public void Jpeg_comment_and_exif_segments_are_stripped_from_stored_bytes()
+    {
+        var jpeg = Fixture("signature.jpg");
+        var html = System.Text.Encoding.ASCII.GetBytes("<html><script>alert(1)</script></html>");
+        byte[] com = [0xFF, 0xFE, (byte)((html.Length + 2) >> 8), (byte)(html.Length + 2), .. html];
+        var exifBody = System.Text.Encoding.ASCII.GetBytes("Exif\0\0MM GPSLatitude 9.03");
+        byte[] app1 = [0xFF, 0xE1, (byte)((exifBody.Length + 2) >> 8), (byte)(exifBody.Length + 2), .. exifBody];
+        var r = ImageInspector.Inspect([.. jpeg[..2], .. app1, .. com, .. jpeg[2..]]);
+        Assert.True(r.IsSuccess, r.Error?.Message);
+        var stored = System.Text.Encoding.Latin1.GetString(r.Value.Canonical);
+        Assert.DoesNotContain("<script>", stored);
+        Assert.DoesNotContain("Exif", stored);
+        Assert.DoesNotContain("GPSLatitude", stored);
+    }
+
+    [Fact]
+    public void Jpeg_without_scan_is_rejected()
+    {
+        var jpeg = Fixture("signature.jpg");
+        var sos = jpeg.AsSpan().IndexOf([(byte)0xFF, (byte)0xDA]);
+        Assert.Equal("malformed_image", ImageInspector.Inspect([.. jpeg[..sos], 0xFF, 0xD9]).Error!.Code);
     }
 
     [Theory]

@@ -40,7 +40,8 @@ public sealed record DocumentDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? FinalizedAt,
     string? PdfSha256,
-    Guid? SupersedesId);
+    Guid? SupersedesId,
+    Guid CreatedBy);
 
 public sealed record RenderedPdf(byte[] Bytes, string FileName, string SnapshotSha256, int TemplateVersion, string? PdfSha256);
 
@@ -96,11 +97,13 @@ public sealed class DocumentService(
         var facilityBranding = await branding.GetFacilityBrandingAsync(last.FacilityId, ct);
         var paper = request.PaperSize ?? Enum.Parse<PaperSize>(facilityBranding.DefaultClinicalPaper);
         var signatures = new Dictionary<string, AssetRef>(StringComparer.Ordinal);
-        foreach (var signer in chain.Select(c => c.Snapshot.SignerPractitionerId).Distinct())
+        foreach (var signer in chain.GroupBy(c => c.Snapshot.SignerPractitionerId))
         {
-            if (await branding.GetActiveSignatureAsync(signer, ct) is { } sig)
+            // Only the signature image that was in effect when this practitioner signed (never one uploaded later).
+            var signedAt = signer.Max(c => c.Snapshot.SignedAtUtc);
+            if (await branding.GetSignatureInEffectAsync(signer.Key, signedAt, ct) is { } sig)
             {
-                signatures[signer.ToString()] = sig;
+                signatures[signer.Key.ToString()] = sig;
             }
         }
 
@@ -320,6 +323,9 @@ public sealed class DocumentService(
         }
 
         var db = await session.ContextAsync<DocumentsDbContext>(ct);
+        // Duplicate outbox deliveries can run concurrently: serialise per note version so the existence check and the insert
+        // are atomic (transaction-scoped advisory lock, released at commit/rollback).
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"autodoc:" + noteVersionId.ToString("N")}, 0))", ct);
         if (await db.Documents.AnyAsync(d => d.NoteVersionId == noteVersionId && d.TemplateCode == ConsultationSummaryRenderer.TemplateCode, ct))
         {
             return "already_exists";
@@ -411,5 +417,5 @@ public sealed class DocumentService(
     }
 
     private static DocumentDto ToDto(DocumentVersion d) =>
-        new(d.Id, d.EncounterId, d.NoteVersionId, d.TemplateCode, d.TemplateVersion, d.PaperSize.ToString(), d.Status.ToString(), d.SnapshotSha256, d.VerificationRef, d.CreatedAt, d.FinalizedAt, d.PdfSha256, d.SupersedesId);
+        new(d.Id, d.EncounterId, d.NoteVersionId, d.TemplateCode, d.TemplateVersion, d.PaperSize.ToString(), d.Status.ToString(), d.SnapshotSha256, d.VerificationRef, d.CreatedAt, d.FinalizedAt, d.PdfSha256, d.SupersedesId, d.CreatedBy);
 }
