@@ -27,8 +27,15 @@ password under 16 characters. Exception details are not logged; OpenAPI is not e
 
 Secrets live only in Railway variables, never in git.
 
+## Current deployment (2026-11-09)
+- URL: https://web-demo-cd4b.up.railway.app · Railway project `serk-clinic-os-demo`, environment `demo`, region iad.
+- Deploys automatically on push to `claude/modest-pascal-x3qzg9`.
+- Verified: E2E 9/9 against the live site (see TEST_EVIDENCE_INDEX).
+- Data protection keys are ephemeral (in-memory); acceptable here because sessions use the app's own revocable tokens.
+
 ## Verify after deploy
-1. `GET /health/ready` → 200.  2. Run the E2E suite against the deployment on a **fresh** database:
+1. `GET /health/ready` → 200.  2. Run the E2E suite against the deployment (re-runnable on an existing database; wait 1 minute between runs because of the
+   login rate limit). From a proxied network add `SERK_E2E_PROXY=<proxy URL>` (and `NODE_EXTRA_CA_CERTS` if it intercepts TLS):
    `SERK_E2E_BASE_URL=https://<domain> SERK_E2E_PASSWORD=<demo password> npx playwright test --trace off` (from `src/web`).
 3. Record the result in `docs/testing/TEST_EVIDENCE_INDEX.md`.
 

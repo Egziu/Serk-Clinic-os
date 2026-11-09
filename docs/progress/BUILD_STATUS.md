@@ -33,7 +33,9 @@ Migrations / recovery: empty-DB migration + idempotent re-run + tamper detection
 Clinical review: PENDING — nothing reviewed by a licensed clinician (incl. automation, no-show grace, hazard entries
   HAZ-031..036, dental vocabulary)
 Legal/regulatory review: PENDING — no compliance claimed; signature-image use in patient copies needs a decision
-Deployment: LOCAL only; no staging or production exists
+Deployment: hosted SYNTHETIC Demo on Railway (owner-requested, 2026-11-09): https://web-demo-cd4b.up.railway.app —
+  E2E 9/9 PASS against the live site. Not staging/production; must never hold real patient data (no MFA, no backups).
+  See docs/operations/RAILWAY_DEMO.md
 Known blockers / risks (ranked):
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed
   4. Open review items (rate limits, composite FKs, outbox RLS/worker role, identity grants, forwarded headers/HSTS)
