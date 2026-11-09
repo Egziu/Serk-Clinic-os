@@ -49,6 +49,8 @@ public sealed record RegisterPatientResponse(string Outcome, PatientDetailDto? P
 
 public sealed record AddAllergyRequest(string? Substance, string? Reaction, AllergySeverity? Severity);
 
+public sealed record ChangeAllergyStatusRequest(AllergyRecordStatus? Status, string? Reason);
+
 public sealed class PatientService(DbSession session, RequestContext context, AuditTrail audit, IdempotencyStore idempotency, TimeProvider clock) : IPatientDirectory
 {
     public const int SearchLimit = 25;
@@ -107,13 +109,17 @@ public sealed class PatientService(DbSession session, RequestContext context, Au
                 .Take(200)
                 .ToListAsync(innerCt);
             var matches = DuplicateMatcher.Score(probe, candidates);
-            if (matches.Any(m => m.Strength == DuplicateStrength.Definite))
+            if (matches.Any(m => m.Strength == DuplicateStrength.Definite)
+                || (matches.Count > 0 && string.IsNullOrWhiteSpace(request.DuplicateOverrideReason)))
             {
-                return Result<RegisterPatientResponse>.Ok(new RegisterPatientResponse("DuplicateReviewRequired", null, ToCandidates(matches)));
-            }
-
-            if (matches.Count > 0 && string.IsNullOrWhiteSpace(request.DuplicateOverrideReason))
-            {
+                // Candidate identities are disclosed to the registrar: audit that disclosure even though nothing is created.
+                await audit.RecordIndependentAsync(
+                    new AuditEntry(
+                        "patient.duplicate_candidates_disclosed",
+                        "patient_registration",
+                        Guid.CreateVersion7(),
+                        Metadata: new Dictionary<string, string> { ["candidateIds"] = string.Join(",", matches.Select(m => m.Candidate.Id)) }),
+                    innerCt);
                 return Result<RegisterPatientResponse>.Ok(new RegisterPatientResponse("DuplicateReviewRequired", null, ToCandidates(matches)));
             }
 
@@ -134,7 +140,14 @@ public sealed class PatientService(DbSession session, RequestContext context, Au
 
         if (result.IsSuccess && result.Value.Outcome == "Created")
         {
-            await session.CommitAsync(ct);
+            try
+            {
+                await session.CommitAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+            {
+                return Error.Conflict("duplicate_identifier", "A patient with this national ID was registered at the same time. Search before retrying.");
+            }
         }
 
         return result;
@@ -180,6 +193,31 @@ public sealed class PatientService(DbSession session, RequestContext context, Au
         await session.CommitAsync(ct);
         var a = allergy.Value;
         return new AllergyDto(a.Id, a.Substance, a.Reaction, a.Severity.ToString(), a.Status.ToString(), a.RecordedAt);
+    }
+
+    public async Task<Result<AllergyDto>> ChangeAllergyStatusAsync(Guid patientId, Guid allergyId, ChangeAllergyStatusRequest request, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var db = await session.ContextAsync<PatientsDbContext>(ct);
+        var patient = await db.Patients.SingleOrDefaultAsync(p => p.Id == patientId && p.TenantId == actor.TenantId, ct);
+        var allergy = await db.Allergies.SingleOrDefaultAsync(a => a.Id == allergyId && a.PatientId == patientId && a.TenantId == actor.TenantId, ct);
+        if (patient is null || allergy is null)
+        {
+            return Error.NotFound();
+        }
+
+        var now = clock.GetUtcNow();
+        var changed = allergy.ChangeStatus(request.Status, request.Reason, actor.UserId, now);
+        if (!changed.IsSuccess)
+        {
+            return changed.Error!;
+        }
+
+        var othersActive = await db.Allergies.AnyAsync(a => a.PatientId == patientId && a.Id != allergyId && a.Status == AllergyRecordStatus.Active, ct);
+        patient.ApplyAllergyCorrection(othersActive, actor.UserId, now);
+        await audit.RecordAsync(new AuditEntry("allergy.status_change", "allergy", allergyId, patientId, Reason: request.Status.ToString(), Metadata: new Dictionary<string, string> { ["newStatus"] = request.Status.ToString()! }), ct);
+        await session.CommitAsync(ct);
+        return new AllergyDto(allergy.Id, allergy.Substance, allergy.Reaction, allergy.Severity.ToString(), allergy.Status.ToString(), allergy.RecordedAt);
     }
 
     public async Task<Result<PatientDetailDto>> RecordNoKnownAllergiesAsync(Guid patientId, int? expectedVersion, CancellationToken ct)
@@ -232,7 +270,7 @@ public sealed class PatientService(DbSession session, RequestContext context, Au
             .OrderBy(a => a.Substance)
             .Select(a => new AllergySummary(a.Substance, a.Reaction, a.Severity.ToString()))
             .ToListAsync(ct);
-        return new PatientBanner(p.Id, p.Mrn, p.DisplayName, p.Sex.ToString(), p.BirthDate, p.BirthDateIsEstimated, p.AllergyStatus.ToString(), allergies);
+        return new PatientBanner(p.Id, p.Mrn, p.DisplayName, p.Sex.ToString(), p.BirthDate, p.BirthDateIsEstimated, p.AllergyStatus.ToString(), p.AllergyStatusUpdatedAt, allergies);
     }
 
     private async Task<string> NextMrnAsync(Guid tenantId, CancellationToken ct)
@@ -249,7 +287,8 @@ public sealed class PatientService(DbSession session, RequestContext context, Au
         return "MRN-" + value.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private DateOnly Today() => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+    /// <summary>Facility-local civil date (v1: default facility zone Africa/Addis_Ababa), not the UTC date.</summary>
+    private DateOnly Today() => BusinessTime.LocalDate(clock.GetUtcNow(), BusinessTime.Resolve(null));
 
     private static PatientSummaryDto Summary(Patient p, DateOnly today) =>
         new(p.Id, p.Mrn, p.DisplayName, p.Sex.ToString(), p.BirthDate, p.BirthDateIsEstimated, Patient.AgeInYears(p.BirthDate, today));

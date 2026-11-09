@@ -42,7 +42,8 @@ public sealed record EncounterDetailDto(
 
 public sealed record EncounterListItemDto(Guid Id, string Status, DateTimeOffset StartedAt, Guid PatientId, string PatientMrn, string PatientDisplayName, string AllergyStatus);
 
-public sealed record SignRequest(int DraftVersion, bool AllergiesReviewed);
+/// <param name="AllergyReviewToken">The <c>patient.allergyReviewToken</c> displayed when the clinician confirmed allergy review.</param>
+public sealed record SignRequest(int DraftVersion, bool AllergiesReviewed, string? AllergyReviewToken);
 
 public sealed record AddendumRequest(string? Text, string? Reason);
 
@@ -63,6 +64,11 @@ public sealed class EncounterService(
     public async Task<Guid> StartEncounterAsync(Guid appointmentId, Guid patientId, Guid attendingPractitionerId, CancellationToken ct)
     {
         var actor = context.RequireActor();
+        if (!actor.Has(Capabilities.AppointmentCheckIn))
+        {
+            throw new UnauthorizedAccessException("Starting an encounter requires the check-in capability.");
+        }
+
         var db = await session.ContextAsync<ClinicalDbContext>(ct);
         var now = Now();
         var encounter = Encounter.Start(actor.TenantId, actor.FacilityId, patientId, appointmentId, attendingPractitionerId, now);
@@ -178,8 +184,13 @@ public sealed class EncounterService(
                 return signer.Error!;
             }
 
-            var draft = await db.NoteDrafts.AsNoTracking().SingleAsync(d => d.EncounterId == id, innerCt);
+            var draft = await db.NoteDrafts.SingleAsync(d => d.EncounterId == id, innerCt);
             var banner = (await patients.GetBannerAsync(encounter.PatientId, innerCt))!;
+            if (!string.Equals(request.AllergyReviewToken, banner.AllergyReviewToken, StringComparison.Ordinal))
+            {
+                return Error.Conflict("allergies_changed", "The patient's allergy information changed since you reviewed it. Review allergies again before signing.");
+            }
+
             var signed = encounter.Sign(draft, request.DraftVersion, request.AllergiesReviewed, signer.Value, banner.AllergyStatus, Allergies(banner), Now());
             if (!signed.IsSuccess)
             {
@@ -263,6 +274,18 @@ public sealed class EncounterService(
         }
 
         return chain.Select(v => new SignedNoteView(v.Id, v.TenantId, encounter.FacilityId, encounter.Id, encounter.PatientId, encounter.StartedAt, v.VersionNo, v.ContentSha256, v.ReadSnapshot())).ToList();
+    }
+
+    public async Task<Guid?> GetLatestSignedVersionIdAsync(Guid encounterId, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var db = await session.ContextAsync<ClinicalDbContext>(ct);
+        if (await FindAccessibleAsync(db, encounterId, actor, tracking: false, ct) is null)
+        {
+            return null;
+        }
+
+        return await db.NoteVersions.AsNoTracking().Where(v => v.EncounterId == encounterId).OrderByDescending(v => v.VersionNo).Select(v => (Guid?)v.Id).FirstOrDefaultAsync(ct);
     }
 
     private async Task<Result<T>> CommitMappingConflictsAsync<T>(Result<T> result, CancellationToken ct)

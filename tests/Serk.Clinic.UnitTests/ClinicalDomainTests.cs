@@ -45,7 +45,8 @@ public class ClinicalDomainTests
         Assert.Equal(1, v.Value.VersionNo);
         Assert.Equal(64, v.Value.ContentSha256.Length);
         Assert.True(v.Value.VerifyIntegrity());
-        Assert.Equal(ErrorKind.Conflict, d.Update(e, NoteContentV1.Empty, 2, Attending, Guid.NewGuid(), Now).Error!.Kind);
+        Assert.Equal(3, d.Version); // signing bumps the draft token so a racing save conflicts
+        Assert.Equal(ErrorKind.Conflict, d.Update(e, NoteContentV1.Empty, 3, Attending, Guid.NewGuid(), Now).Error!.Kind);
         Assert.Equal("already_signed", e.Sign(d, 2, true, Signer, "NoKnownAllergies", [], Now).Error!.Code);
     }
 

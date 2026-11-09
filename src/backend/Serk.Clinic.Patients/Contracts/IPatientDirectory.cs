@@ -11,7 +11,16 @@ public sealed record PatientBanner(
     DateOnly BirthDate,
     bool BirthDateIsEstimated,
     string AllergyStatus,
-    IReadOnlyList<AllergySummary> ActiveAllergies);
+    DateTimeOffset? AllergyStatusUpdatedAt,
+    IReadOnlyList<AllergySummary> ActiveAllergies)
+{
+    /// <summary>
+    /// Fingerprint of the allergy information shown to the clinician. Signing must present the token it displayed; if
+    /// allergies changed in between, the signature is refused (prevents attesting to unseen allergies).
+    /// </summary>
+    public string AllergyReviewToken => Serk.Clinic.SharedKernel.CanonicalJson.Sha256Hex(
+        Serk.Clinic.SharedKernel.CanonicalJson.Serialize(new { AllergyStatus, ActiveAllergies }))[..32];
+}
 
 /// <summary>Published read contract of the Patients module. Always tenant-scoped by the caller's validated context.</summary>
 public interface IPatientDirectory

@@ -20,5 +20,6 @@
 /api/v1/patients/{id}
 /api/v1/patients/{id}/allergies
 /api/v1/patients/{id}/allergies/no-known-allergies
+/api/v1/patients/{id}/allergies/{allergyId}/status
 /api/v1/practitioners
 /api/v1/verify/{reference}

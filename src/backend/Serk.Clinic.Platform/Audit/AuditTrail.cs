@@ -53,6 +53,51 @@ public sealed class AuditTrail(DbSession session, RequestContext context, Npgsql
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    /// <summary>
+    /// Writes an audit event on its own connection/transaction so it persists even when the business transaction is not
+    /// committed (e.g. duplicate candidates disclosed during a registration that did not complete).
+    /// </summary>
+    public async Task RecordIndependentAsync(AuditEntry entry, CancellationToken ct = default)
+    {
+        var actor = context.RequireActor();
+        await using var conn = await dataSource.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        await using (var set = new NpgsqlCommand("SELECT set_config('app.tenant_id', @t, true)", conn, tx))
+        {
+            set.Parameters.AddWithValue("t", actor.TenantId.ToString());
+            await set.ExecuteNonQueryAsync(ct);
+        }
+
+        await using (var cmd = new NpgsqlCommand(
+            """
+            INSERT INTO audit.audit_events
+              (id, tenant_id, facility_id, actor_user_id, actor_session_id, action, resource_type, resource_id, patient_id,
+               outcome, reason, correlation_id, occurred_at, metadata)
+            VALUES (@id, @tenant, @facility, @actor, @session, @action, @rtype, @rid, @patient, @outcome, @reason, @corr, @at, @meta)
+            """,
+            conn,
+            tx))
+        {
+            cmd.Parameters.AddWithValue("id", Guid.CreateVersion7());
+            cmd.Parameters.AddWithValue("tenant", actor.TenantId);
+            cmd.Parameters.AddWithValue("facility", actor.FacilityId);
+            cmd.Parameters.AddWithValue("actor", actor.UserId);
+            cmd.Parameters.AddWithValue("session", actor.SessionId);
+            cmd.Parameters.AddWithValue("action", entry.Action);
+            cmd.Parameters.AddWithValue("rtype", entry.ResourceType);
+            cmd.Parameters.AddWithValue("rid", entry.ResourceId);
+            cmd.Parameters.AddWithValue("patient", (object?)entry.PatientId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("outcome", entry.Outcome);
+            cmd.Parameters.AddWithValue("reason", (object?)entry.Reason ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("corr", context.CorrelationId);
+            cmd.Parameters.AddWithValue("at", clock.GetUtcNow());
+            cmd.Parameters.Add(new NpgsqlParameter("meta", NpgsqlDbType.Jsonb) { Value = JsonSerializer.Serialize(entry.Metadata ?? new Dictionary<string, string>()) });
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        await tx.CommitAsync(ct);
+    }
+
     /// <summary>Security event (login failure, authorization denial). Survives rollback of the business transaction.</summary>
     public Task RecordSecurityEventAsync(string eventType, string outcome, string? resourceType = null, Guid? resourceId = null, CancellationToken ct = default) =>
         WriteSecurityEventAsync(dataSource, clock, eventType, outcome, context.Actor?.UserId, context.Actor?.TenantId, resourceType, resourceId, context.CorrelationId, null, ct);

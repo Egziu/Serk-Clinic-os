@@ -123,6 +123,20 @@ public sealed partial class Patient
         return this;
     }
 
+    /// <summary>
+    /// After the last active allergy is inactivated the status returns to Unknown (forcing a fresh enquiry), never silently
+    /// to "no known allergies".
+    /// </summary>
+    internal void AllergiesChanged(bool anyActiveRemain, Guid actor, DateTimeOffset now)
+    {
+        AllergyStatus = anyActiveRemain ? AllergyStatus.HasAllergies : AllergyStatus.Unknown;
+        AllergyStatusUpdatedAt = now;
+        AllergyStatusUpdatedBy = actor;
+        Version++;
+    }
+
+    public void ApplyAllergyCorrection(bool anyActiveRemain, Guid actor, DateTimeOffset now) => AllergiesChanged(anyActiveRemain, actor, now);
+
     internal void MarkHasAllergies(Guid actor, DateTimeOffset now)
     {
         AllergyStatus = AllergyStatus.HasAllergies;

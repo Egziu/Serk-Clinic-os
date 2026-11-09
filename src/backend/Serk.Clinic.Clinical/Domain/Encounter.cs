@@ -74,7 +74,7 @@ public sealed class Encounter
             return Error.Forbidden("not_attending", "Only the attending clinician may sign this encounter note.");
         }
 
-        if (signer.LicenseExpiresOn < DateOnly.FromDateTime(now.UtcDateTime))
+        if (signer.LicenseExpiresOn < FacilityToday(now))
         {
             return Error.Forbidden("license_expired", "The signer's professional license is expired.");
         }
@@ -108,10 +108,14 @@ public sealed class Encounter
         Status = EncounterStatus.Signed;
         SignedAt = now;
         Version++;
+        draft.LockForSigning(); // bumps the draft's concurrency token: a racing draft save now conflicts instead of being lost
         return NoteVersion.Create(TenantId, snapshot, NoteVersionKind.Original, null);
     }
 
     /// <summary>Attributed addendum referencing the latest signed version. Never edits prior versions.</summary>
+    /// <summary>Licence validity is judged on the facility's civil date (v1 default zone Africa/Addis_Ababa), not the UTC date.</summary>
+    private static DateOnly FacilityToday(DateTimeOffset now) => BusinessTime.LocalDate(now, BusinessTime.Resolve(null));
+
     public Result<NoteVersion> AddAddendum(
         NoteVersion latest,
         string? text,
@@ -126,7 +130,7 @@ public sealed class Encounter
             return Error.Rule("not_signed", "Addenda can only be added to a signed note. Edit the draft instead.");
         }
 
-        if (signer.LicenseExpiresOn < DateOnly.FromDateTime(now.UtcDateTime))
+        if (signer.LicenseExpiresOn < FacilityToday(now))
         {
             return Error.Forbidden("license_expired", "The signer's professional license is expired.");
         }
@@ -150,6 +154,8 @@ public sealed class Encounter
 
 public sealed class NoteDraft
 {
+    internal void LockForSigning() => Version++;
+
     private NoteDraft()
     {
     }

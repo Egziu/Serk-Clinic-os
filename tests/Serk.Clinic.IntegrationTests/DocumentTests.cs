@@ -119,7 +119,8 @@ public class DocumentTests(SerkApiFixture f)
         {
             await using var cmd = new Npgsql.NpgsqlCommand(sql, owner);
             cmd.Parameters.AddWithValue("d", id);
-            await Assert.ThrowsAsync<Npgsql.PostgresException>(() => cmd.ExecuteNonQueryAsync());
+            var ex = await Assert.ThrowsAsync<Npgsql.PostgresException>(() => cmd.ExecuteNonQueryAsync());
+            Assert.Contains("serk_immutable", ex.MessageText, StringComparison.Ordinal);
         }
     }
 

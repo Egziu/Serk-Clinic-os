@@ -20,6 +20,9 @@ public sealed record AppointmentDto(
     Guid PatientId,
     string PatientMrn,
     string PatientDisplayName,
+    DateOnly? PatientBirthDate,
+    bool PatientBirthDateIsEstimated,
+    string PatientSex,
     Guid PractitionerId,
     string PractitionerDisplayName,
     DateTimeOffset StartsAt,
@@ -171,6 +174,7 @@ public sealed class AppointmentService(
         var actor = context.RequireActor();
         var banner = await patients.GetBannerAsync(a.PatientId, ct);
         var practitioner = await staff.GetPractitionerAsync(actor.TenantId, a.PractitionerId, ct);
-        return new AppointmentDto(a.Id, a.PatientId, banner?.Mrn ?? "", banner?.DisplayName ?? "", a.PractitionerId, practitioner?.DisplayName ?? "", a.StartsAt, a.EndsAt, a.Status.ToString(), a.Reason, a.EncounterId, a.Version);
+        // Second identifiers (DOB, sex) let reception confirm identity at check-in (HAZ-001).
+        return new AppointmentDto(a.Id, a.PatientId, banner?.Mrn ?? "", banner?.DisplayName ?? "", banner?.BirthDate, banner?.BirthDateIsEstimated ?? false, banner?.Sex ?? "", a.PractitionerId, practitioner?.DisplayName ?? "", a.StartsAt, a.EndsAt, a.Status.ToString(), a.Reason, a.EncounterId, a.Version);
     }
 }

@@ -76,14 +76,15 @@ public sealed class AuthService(
         var verification = Hasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (verification == PasswordVerificationResult.Failed)
         {
-            user.FailedLoginCount++;
-            if (user.FailedLoginCount >= SessionPolicy.MaxFailedLogins)
-            {
-                user.LockedUntil = now + SessionPolicy.LockoutDuration;
-                user.FailedLoginCount = 0;
-            }
-
-            await db.SaveChangesAsync(ct);
+            // Single atomic statement: concurrent failures cannot lose increments and slip past the lockout threshold.
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE identity.staff_users
+                SET locked_until = CASE WHEN failed_login_count + 1 >= {SessionPolicy.MaxFailedLogins} THEN {now + SessionPolicy.LockoutDuration} ELSE locked_until END,
+                    failed_login_count = CASE WHEN failed_login_count + 1 >= {SessionPolicy.MaxFailedLogins} THEN 0 ELSE failed_login_count + 1 END
+                WHERE id = {user.Id}
+                """,
+                ct);
             await SecurityEventAsync("login.failed", "bad_password", user.Id, hint, ct);
             return failure;
         }
@@ -193,14 +194,18 @@ public sealed class AuthService(
     /// <summary>Revokes every live session of a staff member who is affiliated with the administrator's tenant.</summary>
     public async Task<Result<int>> RevokeAllForUserAsync(StaffActor admin, Guid userId, CancellationToken ct)
     {
-        var sharesTenant = await db.Affiliations.AnyAsync(a => a.UserId == userId && a.TenantId == admin.TenantId, ct);
+        var sharesTenant = await db.Affiliations.AnyAsync(a => a.UserId == userId && a.TenantId == admin.TenantId && a.IsActive, ct);
         if (!sharesTenant)
         {
             return Error.NotFound();
         }
 
         var now = clock.GetUtcNow();
-        var sessions = await db.Sessions.Where(s => s.UserId == userId && s.RevokedAt == null).ToListAsync(ct);
+        // Scope: only sessions working in the administrator's tenant (or not yet bound to any facility).
+        var tenantAffiliations = db.Affiliations.Where(a => a.TenantId == admin.TenantId).Select(a => a.Id);
+        var sessions = await db.Sessions
+            .Where(s => s.UserId == userId && s.RevokedAt == null && (s.ActiveAffiliationId == null || tenantAffiliations.Contains(s.ActiveAffiliationId.Value)))
+            .ToListAsync(ct);
         foreach (var s in sessions)
         {
             s.RevokedAt = now;

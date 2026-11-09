@@ -46,6 +46,9 @@ public interface ISignedNoteReader
 {
     /// <summary>All signed versions of the encounter up to and including <paramref name="noteVersionId"/>, oldest first.</summary>
     Task<IReadOnlyList<SignedNoteView>?> GetSignedChainAsync(Guid noteVersionId, CancellationToken ct);
+
+    /// <summary>The most recent signed version of the encounter (original or addendum), or null if none/inaccessible.</summary>
+    Task<Guid?> GetLatestSignedVersionIdAsync(Guid encounterId, CancellationToken ct);
 }
 
 /// <summary>Command contract used by Scheduling at check-in; executes in the caller's transaction.</summary>

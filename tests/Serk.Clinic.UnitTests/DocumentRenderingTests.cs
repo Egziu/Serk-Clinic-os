@@ -48,7 +48,7 @@ public class DocumentRenderingTests
         using var preview = PdfDocument.Open(ConsultationSummaryRenderer.Render(s, RenderMode.Preview));
         using var final = PdfDocument.Open(ConsultationSummaryRenderer.Render(s, RenderMode.Final));
         static string Rotated(PdfDocument d) => string.Concat(d.GetPages().SelectMany(p => p.Letters).Where(l => l.TextOrientation != TextOrientation.Horizontal).Select(l => l.Value));
-        Assert.Contains("NOTVALID", Rotated(preview).Replace(" ", "", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("NOTISSUED", Rotated(preview).Replace(" ", "", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Empty(Rotated(final));
         Assert.Contains(ConsultationSummaryRenderer.PreviewFooter, HorizontalText(ConsultationSummaryRenderer.Render(s, RenderMode.Preview)));
         Assert.DoesNotContain("DRAFT", HorizontalText(ConsultationSummaryRenderer.Render(s, RenderMode.Final)));
@@ -100,5 +100,35 @@ public class DocumentRenderingTests
     {
         var bytes = ConsultationSummaryRenderer.Render(Snapshot(plan: "<script>alert(1)</script> \\b{bold} %PDF"), RenderMode.Final);
         Assert.Contains("<script>alert(1)</script>", HorizontalText(bytes));
+    }
+}
+
+public class DocumentTemplateV2Tests
+{
+    [Fact(DisplayName = "HAZ-010/012 template v2 flags amendments before content and prints allergies from the latest signature")]
+    public void Amendment_flag_and_latest_allergies()
+    {
+        var s = DocumentRenderingTests.Snapshot();
+        var original = s.SignedParts[0];
+        var addendumNote = original.Note with
+        {
+            VersionNo = 2, Kind = "Addendum", Content = null, AddendumText = "Plan revised.", AddendumReason = "Lab result",
+            SignedAtUtc = original.Note.SignedAtUtc.AddHours(2), AllergyStatusAtSigning = "HasAllergies",
+            ActiveAllergiesAtSigning = [new("Penicillin", "Rash", "Moderate"), new("Latex", "", "Severe")],
+        };
+        var amended = s with { SignedParts = [original, new SignedPart(Guid.NewGuid(), 2, new string('b', 64), addendumNote)] };
+        var text = DocumentRenderingTests.HorizontalText(ConsultationSummaryRenderer.Render(amended, RenderMode.Final));
+        Assert.True(text.IndexOf("AMENDED", StringComparison.Ordinal) < text.IndexOf("Presenting complaint", StringComparison.Ordinal));
+        Assert.Contains("Latex - Severe", text);
+        Assert.Contains("Addendum 1", text);
+        Assert.DoesNotContain("AMENDED", DocumentRenderingTests.HorizontalText(ConsultationSummaryRenderer.Render(s, RenderMode.Final)));
+    }
+
+    [Fact(DisplayName = "HAZ-007 unknown allergy status prints an explicit warning, never a blank")]
+    public void Unknown_allergy_status_is_explicit()
+    {
+        var s = DocumentRenderingTests.Snapshot();
+        var unknown = s with { SignedParts = [s.SignedParts[0] with { Note = s.SignedParts[0].Note with { AllergyStatusAtSigning = "Unknown", ActiveAllergiesAtSigning = [] } }] };
+        Assert.Contains("ALLERGY STATUS NOT RECORDED", DocumentRenderingTests.HorizontalText(ConsultationSummaryRenderer.Render(unknown, RenderMode.Final)));
     }
 }

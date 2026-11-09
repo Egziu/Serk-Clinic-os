@@ -71,6 +71,12 @@ public sealed class DocumentService(
         }
 
         var last = chain[^1];
+        if (await notes.GetLatestSignedVersionIdAsync(last.EncounterId, ct) != last.NoteVersionId)
+        {
+            // A document must include every signed addendum; building from an older version would drop corrections.
+            return Error.Rule("not_latest_version", "A newer signed version (addendum) exists. Prepare the document from the latest signed version.");
+        }
+
         var banner = await patients.GetBannerAsync(last.PatientId, ct);
         var facility = await staff.GetFacilityAsync(actor.TenantId, last.FacilityId, ct);
         if (banner is null || facility is null)
@@ -150,6 +156,11 @@ public sealed class DocumentService(
                 return Error.Conflict("already_final", "This document is already finalized.");
             }
 
+            if (await notes.GetLatestSignedVersionIdAsync(doc.EncounterId, innerCt) != doc.NoteVersionId)
+            {
+                return Error.Conflict("stale_document", "An addendum was signed after this preview was prepared. Prepare a new document from the latest version.");
+            }
+
             var pdf = ConsultationSummaryRenderer.Render(ReadSnapshot(doc), RenderMode.Final);
             var key = $"documents/{doc.TenantId:N}/{Guid.NewGuid():N}.pdf";
             var previous = await db.Documents
@@ -185,6 +196,10 @@ public sealed class DocumentService(
         {
             return Error.Conflict("concurrent_finalize", "The document was finalized concurrently; reload.");
         }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+        {
+            return Error.Conflict("concurrent_finalize", "Another document for this encounter was finalized at the same time; reload.");
+        }
 
         return result;
     }
@@ -202,6 +217,12 @@ public sealed class DocumentService(
         if (doc.Status == DocumentStatus.Draft)
         {
             return Error.Rule("not_final", "Only finalized documents can be downloaded. Use preview for drafts.");
+        }
+
+        if (doc.Status == DocumentStatus.Superseded)
+        {
+            // Superseded PDFs still say "Final document"; never hand them out as if current.
+            return Error.Conflict("document_superseded", "This document was superseded by a newer version. Open the current final document.");
         }
 
         byte[] bytes;

@@ -62,13 +62,14 @@ public class ClinicalRecordTests(SerkApiFixture f)
         Assert.Equal(1L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM platform.outbox_messages WHERE payload->>'noteVersionId' = @v", ("v", s.NoteVersionId.ToString())));
     }
 
-    [Fact(DisplayName = "EMR-003b unauthorized signers are refused: reception, nurse, non-attending clinician, expired license, other tenant")]
+    [Fact(DisplayName = "EMR-003b unauthorized signers are refused: reception, nurse, non-attending clinician, other tenant")]
     public async Task Unauthorized_sign_refused()
     {
         var (pid, eid, d) = await OpenEncounterAsync();
         await Scenario.RecordNoKnownAllergiesAsync(d, pid);
         var v = await Scenario.SaveDraftAsync(d, eid, 1);
-        var body = new { draftVersion = v, allergiesReviewed = true };
+        var token = await Scenario.AllergyTokenAsync(d, eid);
+        var body = new { draftVersion = v, allergiesReviewed = true, allergyReviewToken = token };
 
         foreach (var (user, expected) in new[]
                  {
@@ -85,7 +86,8 @@ public class ClinicalRecordTests(SerkApiFixture f)
 
         Assert.Equal("InProgress", (await d.GetJsonAsync($"/api/v1/encounters/{eid}")).GetProperty("status").GetString());
         Assert.Equal(0L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM clinical.note_versions WHERE encounter_id=@e", ("e", eid)));
-        Assert.True(await f.OwnerScalarAsync<long>("SELECT count(*) FROM audit.security_events WHERE event_type='authorization.denied'") >= 2);
+        Assert.True(await f.OwnerScalarAsync<long>("SELECT count(*) FROM audit.security_events WHERE event_type='authorization.denied' AND user_id = ANY(@u)",
+            ("u", new[] { DemoData.UserId(DemoData.Reception), DemoData.UserId(DemoData.Nurse) })) >= 2);
     }
 
     [Fact(DisplayName = "Expired license blocks signing even for the attending clinician")]
@@ -94,7 +96,7 @@ public class ClinicalRecordTests(SerkApiFixture f)
         var (pid, eid, d) = await OpenEncounterAsync(DemoData.PractitionerExpired, DemoData.ClinicianExpired);
         await Scenario.RecordNoKnownAllergiesAsync(d, pid);
         var v = await Scenario.SaveDraftAsync(d, eid, 1);
-        var r = await d.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{eid}/sign", new { draftVersion = v, allergiesReviewed = true }, Scenario.Key());
+        var r = await Scenario.SignAsync(d, eid, v);
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         Assert.Equal("license_expired", (await ApiClient.Body(r)).GetProperty("code").GetString());
     }
@@ -104,10 +106,10 @@ public class ClinicalRecordTests(SerkApiFixture f)
     {
         var (pid, eid, d) = await OpenEncounterAsync();
         var v = await Scenario.SaveDraftAsync(d, eid, 1);
-        var r1 = await d.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{eid}/sign", new { draftVersion = v, allergiesReviewed = true }, Scenario.Key());
+        var r1 = await Scenario.SignAsync(d, eid, v);
         Assert.Equal("allergy_status_unknown", (await ApiClient.Body(r1)).GetProperty("code").GetString());
         await Scenario.RecordNoKnownAllergiesAsync(d, pid);
-        var r2 = await d.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{eid}/sign", new { draftVersion = v, allergiesReviewed = false }, Scenario.Key());
+        var r2 = await Scenario.SignAsync(d, eid, v, reviewed: false);
         Assert.Equal("allergies_not_reviewed", (await ApiClient.Body(r2)).GetProperty("code").GetString());
     }
 
@@ -117,7 +119,7 @@ public class ClinicalRecordTests(SerkApiFixture f)
         var s = await Scenario.SignedEncounterAsync(f);
         var edit = await s.Clinician.SendAsync(HttpMethod.Put, $"/api/v1/encounters/{s.EncounterId}/note-draft", new { chiefComplaint = "tamper", history = "", examination = "", assessment = "tamper", plan = "" }, ifMatch: "\"v2\"");
         Assert.Equal(HttpStatusCode.Conflict, edit.StatusCode);
-        var resign = await s.Clinician.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{s.EncounterId}/sign", new { draftVersion = 2, allergiesReviewed = true }, Scenario.Key());
+        var resign = await Scenario.SignAsync(s.Clinician, s.EncounterId, 2);
         Assert.Equal(HttpStatusCode.Conflict, resign.StatusCode);
 
         // Runtime role: no UPDATE/DELETE privilege on signed versions.
@@ -191,11 +193,12 @@ public class ClinicalRecordTests(SerkApiFixture f)
         var (pid, eid, d) = await OpenEncounterAsync();
         await Scenario.RecordNoKnownAllergiesAsync(d, pid);
         var v = await Scenario.SaveDraftAsync(d, eid, 1);
-        var body = new { draftVersion = v, allergiesReviewed = true };
+        var body = new { draftVersion = v, allergiesReviewed = true, allergyReviewToken = await Scenario.AllergyTokenAsync(d, eid) };
         var raced = await Task.WhenAll(
             d.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{eid}/sign", body, "race-a-" + eid),
             d.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{eid}/sign", body, "race-b-" + eid));
         Assert.Equal(1, raced.Count(r => r.StatusCode == HttpStatusCode.OK));
+        Assert.All(raced.Where(r => r.StatusCode != HttpStatusCode.OK), r => Assert.True(r.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed, r.StatusCode.ToString()));
         Assert.Equal(1L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM clinical.note_versions WHERE encounter_id=@e", ("e", eid)));
         var winnerKey = raced[0].StatusCode == HttpStatusCode.OK ? "race-a-" + eid : "race-b-" + eid;
         var first = await ApiClient.Body(raced.Single(r => r.StatusCode == HttpStatusCode.OK));

@@ -26,8 +26,8 @@ public enum RenderMode
 public static class ConsultationSummaryRenderer
 {
     public const string TemplateCode = "consultation-summary";
-    public const int TemplateVersion = 1;
-    public const string PreviewWatermark = "DRAFT PREVIEW - NOT VALID";
+    public const int TemplateVersion = 2;
+    public const string PreviewWatermark = "PREVIEW - NOT ISSUED";
     public const string PreviewFooter = "DRAFT PREVIEW - NOT VALID FOR CLINICAL OR LEGAL USE";
     public const string FinalFooter = "Final document";
 
@@ -96,15 +96,30 @@ public static class ConsultationSummaryRenderer
         KeyValue(idTable, "Encounter date", FormatInstant(s.EncounterStartedAtUtc, zone));
 
         var original = s.SignedParts[0].Note;
-        Heading(section, "Allergies (as reviewed at signing)");
-        var allergyText = original.AllergyStatusAtSigning switch
+        var latest = s.SignedParts[^1].Note;
+        if (s.SignedParts.Count > 1)
+        {
+            // Template v2: amendments are flagged before the clinical content, not only after the signature (HAZ-012).
+            var amended = section.AddParagraph();
+            amended.Format.Borders.Left.Color = new Color(0xA3, 0x1D, 0x1D);
+            amended.Format.Borders.Left.Width = Unit.FromPoint(2);
+            amended.Format.LeftIndent = Unit.FromPoint(6);
+            Append(amended, "AMENDED: this record has " + (s.SignedParts.Count - 1).ToString(CultureInfo.InvariantCulture)
+                + " signed addendum(s) below. Read them before acting on the content.", bold: true, color: new Color(0xA3, 0x1D, 0x1D));
+        }
+
+        // Template v2: allergies as reviewed at the most recent signature (HAZ-010), with explicit wording per state (HAZ-007).
+        Heading(section, "Allergies (as reviewed at the latest signature, " + FormatInstant(latest.SignedAtUtc, zone) + ")");
+        var allergyText = latest.AllergyStatusAtSigning switch
         {
             "NoKnownAllergies" => "No known allergies (recorded).",
-            "HasAllergies" when original.ActiveAllergiesAtSigning.Count > 0 => string.Join("; ", original.ActiveAllergiesAtSigning.Select(a =>
+            "HasAllergies" when latest.ActiveAllergiesAtSigning.Count > 0 => string.Join("; ", latest.ActiveAllergiesAtSigning.Select(a =>
                 a.Substance + " - " + a.Severity + (a.Reaction.Length > 0 ? " (" + a.Reaction + ")" : ""))),
-            _ => "Allergy status: " + original.AllergyStatusAtSigning,
+            "HasAllergies" => "Allergies recorded but the list was unavailable at signing - CHECK THE CURRENT RECORD.",
+            _ => "ALLERGY STATUS NOT RECORDED - check the current record.",
         };
         Body(section, allergyText);
+        Body(section, "Always confirm allergies against the current record before prescribing or treating.");
 
         var content = original.Content ?? NoteContentV1.Empty;
         Section(section, "Presenting complaint", content.ChiefComplaint);
@@ -277,7 +292,7 @@ public static class ConsultationSummaryRenderer
     private static void Watermark(PdfDocument pdf)
     {
         var font = new XFont(EmbeddedFontResolver.Latin, 42, XFontStyleEx.Bold);
-        var brush = new XSolidBrush(XColor.FromArgb(55, 163, 29, 29));
+        var brush = new XSolidBrush(XColor.FromArgb(110, 163, 29, 29));
         foreach (var page in pdf.Pages)
         {
             using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);

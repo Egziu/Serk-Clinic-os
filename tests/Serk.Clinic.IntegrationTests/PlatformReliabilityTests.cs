@@ -34,7 +34,7 @@ public class PlatformReliabilityTests(SerkApiFixture f)
 
     private OutboxProcessor Processor(IOutboxHandler handler, int maxAttempts) =>
         new(f.Factory.Services.GetRequiredService<NpgsqlDataSource>(), [handler],
-            Options.Create(new OutboxOptions { MaxAttempts = maxAttempts, BaseBackoff = TimeSpan.Zero }), TimeProvider.System, NullLogger<OutboxProcessor>.Instance);
+            Options.Create(new OutboxOptions { MaxAttempts = maxAttempts, BaseBackoff = TimeSpan.Zero, OnlyRegisteredTypes = true }), TimeProvider.System, NullLogger<OutboxProcessor>.Instance);
 
     private async Task DrainAsync(OutboxProcessor p)
     {

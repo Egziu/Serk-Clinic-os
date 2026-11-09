@@ -34,6 +34,34 @@ public sealed class Allergy
     public DateTimeOffset RecordedAt { get; private set; }
     public Guid RecordedBy { get; private set; }
     public int Version { get; private set; }
+    public string? StatusReason { get; private set; }
+    public DateTimeOffset? StatusChangedAt { get; private set; }
+    public Guid? StatusChangedBy { get; private set; }
+
+    /// <summary>Corrections never delete: an allergy is inactivated or marked entered-in-error with an attributed reason.</summary>
+    public Result<Allergy> ChangeStatus(AllergyRecordStatus? newStatus, string? reason, Guid actor, DateTimeOffset now)
+    {
+        var v = new ValidationCollector()
+            .Require(newStatus is AllergyRecordStatus.Inactive or AllergyRecordStatus.EnteredInError, "status", "Use Inactive or EnteredInError.")
+            .Require((reason?.Trim().Length ?? 0) >= 5, "reason", "Give a reason of at least 5 characters.")
+            .MaxLength(reason?.Trim(), 300, "reason");
+        if (v.HasErrors)
+        {
+            return v.ToError();
+        }
+
+        if (Status != AllergyRecordStatus.Active)
+        {
+            return Error.Conflict("not_active", "Only active allergy entries can be changed.");
+        }
+
+        Status = newStatus!.Value;
+        StatusReason = reason!.Trim();
+        StatusChangedAt = now;
+        StatusChangedBy = actor;
+        Version++;
+        return this;
+    }
 
     public static Result<Allergy> Record(Patient patient, string? substance, string? reaction, AllergySeverity? severity, Guid actor, DateTimeOffset now)
     {

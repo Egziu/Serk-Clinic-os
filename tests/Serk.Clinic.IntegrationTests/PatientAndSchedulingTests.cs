@@ -143,6 +143,7 @@ public class PatientAndSchedulingTests(SerkApiFixture f)
         var apptId = (await ApiClient.Body(book)).GetProperty("id").GetGuid();
         var results = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => r.SendAsync(HttpMethod.Post, $"/api/v1/appointments/{apptId}/check-in")));
         Assert.Equal(1, results.Count(x => x.StatusCode == HttpStatusCode.OK));
+        Assert.All(results.Where(x => x.StatusCode != HttpStatusCode.OK), x => Assert.Equal(HttpStatusCode.Conflict, x.StatusCode));
         Assert.Equal(1L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM clinical.encounters WHERE appointment_id = @a", ("a", apptId)));
     }
 

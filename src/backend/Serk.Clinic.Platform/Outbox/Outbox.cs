@@ -51,6 +51,12 @@ public sealed class OutboxOptions
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(2);
     public TimeSpan BaseBackoff { get; set; } = TimeSpan.FromSeconds(2);
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// When true, a processor only claims message types it has handlers for (used to isolate processors, e.g. in tests or
+    /// specialised workers). When false (default), unknown types are claimed and dead-lettered so they are visible, not stuck.
+    /// </summary>
+    public bool OnlyRegisteredTypes { get; set; }
 }
 
 /// <summary>
@@ -77,6 +83,7 @@ public sealed class OutboxProcessor(
             SELECT id, tenant_id, message_type, payload::text, attempts, correlation_id
             FROM platform.outbox_messages
             WHERE status = 'Pending' AND next_attempt_at <= @now
+              AND (NOT @only OR message_type = ANY(@types))
             ORDER BY next_attempt_at, id
             LIMIT @limit
             FOR UPDATE SKIP LOCKED
@@ -86,6 +93,8 @@ public sealed class OutboxProcessor(
         {
             select.Parameters.AddWithValue("now", clock.GetUtcNow());
             select.Parameters.AddWithValue("limit", opts.BatchSize);
+            select.Parameters.AddWithValue("only", opts.OnlyRegisteredTypes);
+            select.Parameters.AddWithValue("types", _handlers.Keys.ToArray());
             await using var reader = await select.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {

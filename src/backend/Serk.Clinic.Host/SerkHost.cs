@@ -98,6 +98,13 @@ public static class SerkHost
 
         var app = builder.Build();
 
+        var publicBase = app.Configuration["Documents:PublicBaseUrl"] ?? "";
+        if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing")
+            && (!Uri.TryCreate(publicBase, UriKind.Absolute, out var baseUri) || baseUri.IsLoopback || baseUri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new InvalidOperationException("Documents:PublicBaseUrl must be an absolute public https URL outside Development (QR verification).");
+        }
+
         var ownerConnection = app.Configuration.GetConnectionString("Migrations");
         _ = app.Services.GetRequiredService<NpgsqlDataSource>(); // fail fast on missing runtime connection string
         if (args.Contains("migrate"))

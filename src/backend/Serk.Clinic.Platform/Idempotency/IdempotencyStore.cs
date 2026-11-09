@@ -50,7 +50,7 @@ public sealed class IdempotencyStore(DbSession session, RequestContext context, 
             var inserted = await insert.ExecuteNonQueryAsync(ct);
             if (inserted == 0)
             {
-                return await ReplayAsync<T>(actor.TenantId, scope, key, requestHash, ct);
+                return await ReplayAsync<T>(actor.TenantId, actor.UserId, scope, key, requestHash, ct);
             }
         }
 
@@ -72,10 +72,10 @@ public sealed class IdempotencyStore(DbSession session, RequestContext context, 
         return result;
     }
 
-    private async Task<Result<T>> ReplayAsync<T>(Guid tenant, string scope, string key, string requestHash, CancellationToken ct)
+    private async Task<Result<T>> ReplayAsync<T>(Guid tenant, Guid actorUserId, string scope, string key, string requestHash, CancellationToken ct)
     {
         await using var select = await session.CommandAsync(
-            "SELECT request_hash, status, response_json::text FROM platform.idempotency_records WHERE tenant_id = @tenant AND scope = @scope AND idempotency_key = @key",
+            "SELECT request_hash, status, response_json::text, actor_user_id FROM platform.idempotency_records WHERE tenant_id = @tenant AND scope = @scope AND idempotency_key = @key",
             ct);
         select.Parameters.AddWithValue("tenant", tenant);
         select.Parameters.AddWithValue("scope", scope);
@@ -84,6 +84,13 @@ public sealed class IdempotencyStore(DbSession session, RequestContext context, 
         if (!await reader.ReadAsync(ct))
         {
             return Error.Conflict("idempotency_conflict", "The idempotent request could not be resolved; retry.");
+        }
+
+        // Replays are only served to the user who made the original request. Another user presenting the same key gets
+        // no stored data (which could disclose a resource they may not access) and must use a fresh key.
+        if (reader.GetGuid(3) != actorUserId)
+        {
+            return Error.Conflict("idempotency_key_conflict", "This Idempotency-Key belongs to another request. Use a new key.");
         }
 
         if (!string.Equals(reader.GetString(0), requestHash, StringComparison.Ordinal))

@@ -68,6 +68,16 @@ public static class Scenario
         Assert.True(r.StatusCode == HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
     }
 
+    /// <summary>Reads the allergy-review token currently displayed for the encounter's patient.</summary>
+    public static async Task<string> AllergyTokenAsync(ApiClient clinician, Guid encounterId) =>
+        (await clinician.GetJsonAsync($"/api/v1/encounters/{encounterId}")).GetProperty("patient").GetProperty("allergyReviewToken").GetString()!;
+
+    public static async Task<HttpResponseMessage> SignAsync(ApiClient clinician, Guid encounterId, int draftVersion, bool reviewed = true, string? key = null, string? token = null)
+    {
+        token ??= await AllergyTokenAsync(clinician, encounterId);
+        return await clinician.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{encounterId}/sign", new { draftVersion, allergiesReviewed = reviewed, allergyReviewToken = token }, key ?? Key());
+    }
+
     /// <summary>Registers, books, checks in, records NKA, drafts and signs. Returns ids.</summary>
     public static async Task<SignedEncounter> SignedEncounterAsync(SerkApiFixture f, ApiClient? clinician = null)
     {
@@ -77,7 +87,7 @@ public static class Scenario
         var (_, encounterId) = await BookAndCheckInAsync(reception, patientId);
         await RecordNoKnownAllergiesAsync(clinician, patientId);
         var v = await SaveDraftAsync(clinician, encounterId, 1);
-        var sign = await clinician.SendAsync(HttpMethod.Post, $"/api/v1/encounters/{encounterId}/sign", new { draftVersion = v, allergiesReviewed = true }, Key());
+        var sign = await SignAsync(clinician, encounterId, v);
         Assert.True(sign.StatusCode == HttpStatusCode.OK, await sign.Content.ReadAsStringAsync());
         var body = await ApiClient.Body(sign);
         return new SignedEncounter(patientId, encounterId, body.GetProperty("noteVersionId").GetGuid(), body.GetProperty("contentSha256").GetString()!, clinician);

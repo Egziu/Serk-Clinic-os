@@ -232,6 +232,48 @@
         }
       }
     },
+    "/api/v1/patients/{id}/allergies/{allergyId}/status": {
+      "post": {
+        "tags": [
+          "Patients"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "allergyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeAllergyStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/patients/{id}/allergies/no-known-allergies": {
       "post": {
         "tags": [
@@ -690,6 +732,14 @@
         },
         "additionalProperties": false
       },
+      "AllergyRecordStatus": {
+        "enum": [
+          "Active",
+          "Inactive",
+          "EnteredInError",
+          null
+        ]
+      },
       "AllergySeverity": {
         "enum": [
           "Mild",
@@ -731,6 +781,32 @@
               "string"
             ],
             "format": "int32"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangeAllergyStatusRequest": {
+        "required": [
+          "status",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AllergyRecordStatus"
+              }
+            ]
           },
           "reason": {
             "type": [
@@ -935,7 +1011,8 @@
       "SignRequest": {
         "required": [
           "draftVersion",
-          "allergiesReviewed"
+          "allergiesReviewed",
+          "allergyReviewToken"
         ],
         "type": "object",
         "properties": {
@@ -949,6 +1026,12 @@
           },
           "allergiesReviewed": {
             "type": "boolean"
+          },
+          "allergyReviewToken": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
         "additionalProperties": false

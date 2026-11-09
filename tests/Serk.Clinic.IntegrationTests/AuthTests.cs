@@ -27,22 +27,25 @@ public class AuthTests(SerkApiFixture f)
         Assert.False(a.Headers.Contains("Set-Cookie"));
     }
 
-    [Fact(DisplayName = "Login lockout after repeated failures blocks even the correct password")]
+    [Fact(DisplayName = "Login lockout after repeated (including concurrent) failures blocks even the correct password")]
     public async Task Lockout_after_repeated_failures()
     {
-        // Uses dr.expired (whose sign attempts are expected to fail anyway) and resets the lock afterwards.
+        // Uses dr.expired (whose sign attempts are expected to fail anyway); the lock is always reset afterwards.
         using var c = f.Client();
-        await f.OwnerScalarAsync<object>("UPDATE identity.staff_users SET failed_login_count = 0, locked_until = NULL WHERE username = 'dr.expired'");
-        for (var i = 0; i < 5; i++)
+        const string reset = "UPDATE identity.staff_users SET failed_login_count = 0, locked_until = NULL WHERE username = 'dr.expired'";
+        await f.OwnerScalarAsync<object>(reset);
+        try
         {
-            await c.LoginRawAsync(DemoData.ClinicianExpired, "wrong-password");
+            await Task.WhenAll(Enumerable.Range(0, 12).Select(_ => c.LoginRawAsync(DemoData.ClinicianExpired, "wrong-password")));
+            Assert.NotNull(await f.OwnerScalarAsync<DateTime?>("SELECT locked_until FROM identity.staff_users WHERE username = 'dr.expired'"));
+            Assert.Equal(HttpStatusCode.BadRequest, (await c.LoginRawAsync(DemoData.ClinicianExpired, SerkApiFixture.DemoPassword)).StatusCode);
+            Assert.True(await f.OwnerScalarAsync<long>("SELECT count(*) FROM audit.security_events WHERE event_type = 'login.failed' AND outcome = 'locked' AND user_id = @u",
+                ("u", DemoData.UserId(DemoData.ClinicianExpired))) >= 1);
         }
-
-        Assert.Equal(HttpStatusCode.BadRequest, (await c.LoginRawAsync(DemoData.ClinicianExpired, SerkApiFixture.DemoPassword)).StatusCode);
-        Assert.NotNull(await f.OwnerScalarAsync<DateTime?>("SELECT locked_until FROM identity.staff_users WHERE username = 'dr.expired'"));
-        await f.OwnerScalarAsync<object>("UPDATE identity.staff_users SET failed_login_count = 0, locked_until = NULL WHERE username = 'dr.expired'");
-        var events = await f.OwnerScalarAsync<long>("SELECT count(*) FROM audit.security_events WHERE event_type = 'login.failed' AND outcome = 'locked'");
-        Assert.True(events >= 1);
+        finally
+        {
+            await f.OwnerScalarAsync<object>(reset);
+        }
     }
 
     [Fact(DisplayName = "IDENT-002 logout revokes the server-side session immediately")]

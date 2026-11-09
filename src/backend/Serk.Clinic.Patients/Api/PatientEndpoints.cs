@@ -35,6 +35,10 @@ public static class PatientEndpoints
             (await service.AddAllergyAsync(id, body, ct)).ToHttp(a => Results.Created($"/api/v1/patients/{id}", a)))
             .RequireCapability(Capabilities.AllergyWrite);
 
+        g.MapPost("/{id:guid}/allergies/{allergyId:guid}/status", async (Guid id, Guid allergyId, ChangeAllergyStatusRequest body, PatientService service, CancellationToken ct) =>
+            (await service.ChangeAllergyStatusAsync(id, allergyId, body, ct)).ToHttp(Results.Ok))
+            .RequireCapability(Capabilities.AllergyWrite);
+
         g.MapPost("/{id:guid}/allergies/no-known-allergies", async (Guid id, HttpRequest http, PatientService service, CancellationToken ct) =>
             (await service.RecordNoKnownAllergiesAsync(id, ResultHttp.ParseIfMatchVersion(http), ct)).ToHttp(Results.Ok))
             .RequireCapability(Capabilities.AllergyWrite);
