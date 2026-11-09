@@ -17,8 +17,10 @@ E2E & accessibility: PASS — Playwright 5/5 (slice + dental) on built SPA + API
 Security: NuGet + npm audits 0 known vulnerabilities (documented pins/overrides); license guard PASS;
   AI security review round 1: High/Medium findings fixed with regression tests, several Low items open;
   SAST NOT RUN, secret scan NOT RUN, DAST NOT RUN, penetration test NOT RUN; MFA NOT IMPLEMENTED (blocker)
-CI: run #1 (3fc3f90) FAILED at format check (my omission) — web job passed; fixed + tools/verify.sh added;
-  rerun result recorded below after push
+CI: run #1 (3fc3f90) FAILED at format check (my omission); fixed + tools/verify.sh added.
+  run #2 (dd88759) PASS on GitHub Actions — backend (locked restore, format, build, vuln scan, all .NET tests on
+  PostgreSQL 16 service), web (audit, lint, typecheck, Vitest, build), e2e (Playwright 5/5) — 2026-11-09 15:21 UTC
+  https://github.com/Egziu/Serk-Clinic-os/actions/runs/42643113858
 Migrations / recovery: empty-DB migration + idempotent re-run + tamper detection PASS (integration);
   upgrade-from-previous-snapshot NOT RUN; backup/restore/key recovery NOT RUN
 Clinical review: PENDING — no licensed clinician has reviewed anything (incl. dental vocabulary and rules)
