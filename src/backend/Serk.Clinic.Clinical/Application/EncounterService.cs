@@ -57,8 +57,16 @@ public sealed class EncounterService(
     OutboxWriter outbox,
     IPatientDirectory patients,
     IStaffDirectory staff,
-    TimeProvider clock) : IEncounterLauncher, ISignedNoteReader
+    TimeProvider clock) : IEncounterLauncher, ISignedNoteReader, IEncounterAccess
 {
+    async Task<EncounterAccessView?> IEncounterAccess.GetAsync(Guid encounterId, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var db = await session.ContextAsync<ClinicalDbContext>(ct);
+        var e = await FindAccessibleAsync(db, encounterId, actor, tracking: false, ct);
+        return e is null ? null : new EncounterAccessView(e.Id, e.PatientId, e.FacilityId, e.AttendingPractitionerId, e.Status == EncounterStatus.InProgress);
+    }
+
     public const string NoteSignedMessage = "clinical.note-signed.v1";
 
     public async Task<Guid> StartEncounterAsync(Guid appointmentId, Guid patientId, Guid attendingPractitionerId, CancellationToken ct)

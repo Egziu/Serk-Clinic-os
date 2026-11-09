@@ -3,6 +3,7 @@ import { api, ApiError, fetchPdfUrl, newIdempotencyKey } from "../api/client";
 import type { DocumentInfo, EncounterDetail, NoteContent, PatientBanner, Session } from "../api/types";
 import { AllergyBadge, ErrorAlert, Field, StatusBadge } from "../components/common";
 import { formatDualDate, formatDualInstant, shortHash } from "../lib/format";
+import { DentalChart } from "./DentalChart";
 
 type SaveState = "saved" | "dirty" | "saving" | "conflict" | "error";
 
@@ -45,6 +46,7 @@ export function EncounterPage({ id, session, onBack }: { id: string; session: Se
     <>
       <PatientBannerView patient={enc.patient} encounterStatus={enc.status} startedAt={enc.startedAt} />
       <ErrorAlert error={error} />
+      {can("dental.chart.read") && <DentalChart encounterId={enc.id} canWrite={can("dental.chart.write") && enc.isAttending} encounterOpen={enc.status === "InProgress"} />}
       <div className="grid-2">
         <div>
           {enc.status === "InProgress" && enc.draft && (enc.isAttending ? (

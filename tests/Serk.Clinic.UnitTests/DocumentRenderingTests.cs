@@ -112,8 +112,13 @@ public class DocumentTemplateV2Tests
         var original = s.SignedParts[0];
         var addendumNote = original.Note with
         {
-            VersionNo = 2, Kind = "Addendum", Content = null, AddendumText = "Plan revised.", AddendumReason = "Lab result",
-            SignedAtUtc = original.Note.SignedAtUtc.AddHours(2), AllergyStatusAtSigning = "HasAllergies",
+            VersionNo = 2,
+            Kind = "Addendum",
+            Content = null,
+            AddendumText = "Plan revised.",
+            AddendumReason = "Lab result",
+            SignedAtUtc = original.Note.SignedAtUtc.AddHours(2),
+            AllergyStatusAtSigning = "HasAllergies",
             ActiveAllergiesAtSigning = [new("Penicillin", "Rash", "Moderate"), new("Latex", "", "Severe")],
         };
         var amended = s with { SignedParts = [original, new SignedPart(Guid.NewGuid(), 2, new string('b', 64), addendumNote)] };

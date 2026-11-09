@@ -12,6 +12,7 @@ public static class ClinicalModule
         services.AddScoped<EncounterService>();
         services.AddScoped<IEncounterLauncher>(sp => sp.GetRequiredService<EncounterService>());
         services.AddScoped<ISignedNoteReader>(sp => sp.GetRequiredService<EncounterService>());
+        services.AddScoped<IEncounterAccess>(sp => sp.GetRequiredService<EncounterService>());
         services.AddScoped<IOutboxHandler, NoteSignedHandler>();
         return services;
     }

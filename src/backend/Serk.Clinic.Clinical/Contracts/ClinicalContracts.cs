@@ -56,3 +56,12 @@ public interface IEncounterLauncher
 {
     Task<Guid> StartEncounterAsync(Guid appointmentId, Guid patientId, Guid attendingPractitionerId, CancellationToken ct);
 }
+
+/// <summary>Minimal encounter facts for specialty modules, only returned when the caller may access the encounter.</summary>
+public sealed record EncounterAccessView(Guid EncounterId, Guid PatientId, Guid FacilityId, Guid AttendingPractitionerId, bool IsOpen);
+
+/// <summary>Published contract for specialty packs that extend an encounter (stable, typed; no table access).</summary>
+public interface IEncounterAccess
+{
+    Task<EncounterAccessView?> GetAsync(Guid encounterId, CancellationToken ct);
+}

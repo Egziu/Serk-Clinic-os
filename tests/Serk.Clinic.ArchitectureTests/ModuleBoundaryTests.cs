@@ -6,7 +6,7 @@ namespace Serk.Clinic.ArchitectureTests;
 /// <summary>Automated module dependency boundary checks (inspects compiled IL, including method bodies).</summary>
 public class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Identity", "Patients", "Scheduling", "Clinical", "Documents"];
+    private static readonly string[] Modules = ["Identity", "Patients", "Scheduling", "Clinical", "Documents", "Dental"];
 
     private static Assembly Module(string name) => Assembly.Load("Serk.Clinic." + name);
 
@@ -63,6 +63,15 @@ public class ModuleBoundaryTests
                 .GetResult();
             Assert.True(result.IsSuccessful, $"{module}: " + string.Join(", ", result.FailingTypeNames ?? []));
         }
+    }
+
+    [Fact]
+    public void Specialty_packs_never_reference_core_internals_or_other_core_modules_directly()
+    {
+        var result = Types.InAssembly(Module("Dental"))
+            .ShouldNot().HaveDependencyOnAny("Serk.Clinic.Patients", "Serk.Clinic.Scheduling", "Serk.Clinic.Documents", "Serk.Clinic.Identity.Application", "Serk.Clinic.Clinical.Domain", "Serk.Clinic.Clinical.Infrastructure")
+            .GetResult();
+        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
     }
 
     [Fact]

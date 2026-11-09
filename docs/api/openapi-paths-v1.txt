@@ -12,6 +12,9 @@
 /api/v1/documents/{id}/preview
 /api/v1/documents/{id}/print-events
 /api/v1/encounters
+/api/v1/encounters/{encounterId}/dental/chart
+/api/v1/encounters/{encounterId}/dental/findings
+/api/v1/encounters/{encounterId}/dental/teeth/{toothCode}/history
 /api/v1/encounters/{id}
 /api/v1/encounters/{id}/addenda
 /api/v1/encounters/{id}/note-draft

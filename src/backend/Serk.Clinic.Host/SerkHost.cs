@@ -7,6 +7,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using Serk.Clinic.Clinical;
 using Serk.Clinic.Clinical.Api;
+using Serk.Clinic.Dental;
+using Serk.Clinic.Dental.Api;
 using Serk.Clinic.Documents;
 using Serk.Clinic.Documents.Api;
 using Serk.Clinic.Documents.Application;
@@ -74,7 +76,7 @@ public static class SerkHost
         builder.Services.AddSingleton<IObjectStore, FileSystemObjectStore>();
         builder.Services.Configure<DocumentOptions>(config.GetSection("Documents"));
 
-        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule();
+        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule();
 
         builder.Services.ConfigureHttpJsonOptions(o =>
         {
@@ -207,6 +209,7 @@ public static class SerkHost
         app.MapAppointmentEndpoints();
         app.MapEncounterEndpoints();
         app.MapDocumentEndpoints();
+        app.MapDentalEndpoints();
         app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));
         app.MapFallbackToFile("index.html");
     }

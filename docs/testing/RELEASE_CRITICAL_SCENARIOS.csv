@@ -21,7 +21,10 @@ EMR-006,Clinical,Audit of sensitive read,Yes,Integration,PASS (automated),Clinic
 MED-001,Clinical,Allergy display,Yes,E2E,PASS (automated) — clinical review PENDING,E2E banner assertions; HAZ-007/009 tests
 MED-002..005,Medications,Prescription / dispense / lots / dosing,Yes,—,NOT IMPLEMENTED,Milestone D
 LAB-001..003,Labs,Orders / results / critical acknowledgement,Yes,—,NOT IMPLEMENTED,Milestone F
-DENT-001..004,Dental,FDI / surfaces / wrong-tooth / estimate,Yes,—,NOT IMPLEMENTED,Next milestone
+DENT-001,Dental,FDI tooth mapping (permanent + primary),Yes,Unit + integration,PASS (automated) — clinical review PENDING,DentalDomainTests.Fdi_code_sets; Fdi_names_and_types; DentalTests.Record_and_read_chart
+DENT-002,Dental,Surface edit and historical versions,Yes,Unit + integration,PASS (automated) — clinical review PENDING,DentalDomainTests.Surface_rules; Current_state_and_corrections; DentalTests.Corrections_preserve_history
+DENT-003,Dental,Wrong-tooth confirmation,Yes,Unit + integration + E2E,PASS (automated) — clinical review PENDING,DentalDomainTests.Wrong_tooth_confirmation; DentalTests.Wrong_tooth_rejected; E2E dental.spec.ts
+DENT-004,Dental,Treatment estimate and consent,Yes,—,NOT IMPLEMENTED,Next dental slice
 DERM-001..003; OBGYN-001..003; PEDS-001..003,Specialties,—,Yes,—,NOT IMPLEMENTED,Milestone E
 BILL-001..004,Billing,—,Yes,—,NOT IMPLEMENTED,Milestone D
 DOC-001,Documents,Authenticated preview,Yes,Integration,PASS (automated),DocumentTests.Preview_requires_authorization

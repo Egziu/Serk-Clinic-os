@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Specialty pack: depends only on published core contracts (Clinical, Patients, Identity) and Platform. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\backend\Serk.Clinic.SharedKernel\Serk.Clinic.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\backend\Serk.Clinic.Platform\Serk.Clinic.Platform.csproj" />
+    <ProjectReference Include="..\..\backend\Serk.Clinic.Clinical\Serk.Clinic.Clinical.csproj" />
+  </ItemGroup>
+</Project>

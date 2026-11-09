@@ -10,6 +10,9 @@
     <Project Path="src/backend/Serk.Clinic.Scheduling/Serk.Clinic.Scheduling.csproj" />
     <Project Path="src/backend/Serk.Clinic.SharedKernel/Serk.Clinic.SharedKernel.csproj" />
   </Folder>
+  <Folder Name="/src/specialties/">
+    <Project Path="src/specialties/Serk.Clinic.Dental/Serk.Clinic.Dental.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Serk.Clinic.ArchitectureTests/Serk.Clinic.ArchitectureTests.csproj" />
     <Project Path="tests/Serk.Clinic.IntegrationTests/Serk.Clinic.IntegrationTests.csproj" />

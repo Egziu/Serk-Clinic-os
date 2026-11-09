@@ -7,7 +7,8 @@
 | Identity | `identity` | tenants, facilities, staff users, practitioners, affiliations, sessions, RoleCatalog | `IStaffDirectory` (practitioner/facility lookups) | Platform | — |
 | Patients | `patients` | patients, MRN counters, allergies, duplicate matching | `IPatientDirectory` (`PatientBanner` incl. allergy review token) | Platform | other modules' internals (tested) |
 | Scheduling | `scheduling` | appointments (exclusion constraint) | — | `IPatientDirectory`, `IStaffDirectory`, `IEncounterLauncher` | — |
-| Clinical | `clinical` | encounters, drafts, immutable note versions | `IEncounterLauncher`, `ISignedNoteReader`, `SignedNoteSnapshotV1`, `NoteContentV1` | `IPatientDirectory`, `IStaffDirectory` | PDF libraries (tested) |
+| Clinical | `clinical` | encounters, drafts, immutable note versions | `IEncounterLauncher`, `ISignedNoteReader`, `IEncounterAccess`, `SignedNoteSnapshotV1`, `NoteContentV1` | `IPatientDirectory`, `IStaffDirectory` | PDF libraries (tested) |
+| Dental (specialty pack) | `dental` | append-only FDI tooth findings attached to encounters, `DentalManifest` | — | `IEncounterAccess` (Clinical) only | Patients/Scheduling/Documents and Clinical internals (tested) |
 | Documents | `documents` | document versions, template rendering, verification | `ConsultationDocumentSnapshotV1` | `ISignedNoteReader`, `IPatientDirectory`, `IStaffDirectory` | — |
 
 **SQL-level coupling (deliberate, recorded in ADR-0001/0003):** cross-schema foreign keys for referential integrity

@@ -14,4 +14,4 @@ REQ-CAL-01,05_UX calendars; MASTER §6,SharedKernel/web,High,Date misinterpretat
 REQ-LOG-01,MASTER §5 PHI in logs,Host,High,PHI leakage,SerkHost.cs exception handler,SEC-004,docs/evidence/milestone-A,AI reviewer (security),Automatically tested
 REQ-UX-01,MASTER §6 accessibility,web,High,Unusable for some staff,src/web/*,E2E axe scans,docs/evidence/milestone-A/screenshots,—,Automatically tested (automated subset only)
 REQ-BAK-01,06_OPERATIONS backup,Operations,Critical,Data loss,—,OPS-003,—,—,Not implemented
-REQ-DENT-01,02_MODULES Dental,Dental,High,Wrong tooth,—,DENT-001..004,—,—,Next
+REQ-DENT-01,02_MODULES Dental; MASTER §4 E,Dental,High,Wrong tooth / lost history,src/specialties/Serk.Clinic.Dental; database/migrations/0008_dental.sql; src/web/src/pages/DentalChart.tsx,DENT-001..003,docs/evidence/milestone-A/screenshots/05-dental-chart.png,—,Automatically tested; clinical review PENDING; DENT-004 not implemented

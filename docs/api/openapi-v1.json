@@ -673,6 +673,95 @@
           }
         }
       }
+    },
+    "/api/v1/encounters/{encounterId}/dental/chart": {
+      "get": {
+        "tags": [
+          "Dental"
+        ],
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/encounters/{encounterId}/dental/teeth/{toothCode}/history": {
+      "get": {
+        "tags": [
+          "Dental"
+        ],
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "toothCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/encounters/{encounterId}/dental/findings": {
+      "post": {
+        "tags": [
+          "Dental"
+        ],
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordFindingInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -913,6 +1002,77 @@
         },
         "additionalProperties": false
       },
+      "RecordFindingInput": {
+        "required": [
+          "toothCode",
+          "confirmToothCode",
+          "surfaces",
+          "condition",
+          "note",
+          "correctsEntryId",
+          "correctionReason"
+        ],
+        "type": "object",
+        "properties": {
+          "toothCode": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "confirmToothCode": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "surfaces": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ToothSurface"
+            }
+          },
+          "condition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ToothCondition"
+              }
+            ]
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "correctsEntryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "correctionReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "RegisterPatientRequest": {
         "required": [
           "givenName",
@@ -1035,6 +1195,29 @@
           }
         },
         "additionalProperties": false
+      },
+      "ToothCondition": {
+        "enum": [
+          "Sound",
+          "Caries",
+          "Restored",
+          "Crown",
+          "RootCanalTreated",
+          "Fractured",
+          "Sealant",
+          "Missing",
+          null
+        ]
+      },
+      "ToothSurface": {
+        "enum": [
+          "Mesial",
+          "Distal",
+          "Occlusal",
+          "Incisal",
+          "Buccal",
+          "Lingual"
+        ]
       }
     }
   },
@@ -1062,6 +1245,9 @@
     },
     {
       "name": "Documents"
+    },
+    {
+      "name": "Dental"
     }
   ]
 }
