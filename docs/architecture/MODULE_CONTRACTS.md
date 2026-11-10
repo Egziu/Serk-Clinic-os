@@ -34,3 +34,9 @@ transaction; Clinical verifies the caller holds `appointment.checkin`.
   consumed by `AutoPrepareSummaryHandler` (Documents), which only creates a watermarked draft.
 * The fact views are the deliberate SQL-level read contract for analytics (ADR-0012); they expose no names, MRNs or
   free text, and RLS of the underlying tables applies to the caller (`security_invoker`).
+
+## Added 2026-11-10: system administration (Identity)
+* `identity.platform_admins`, `identity.role_definitions`, `identity.admin_changes`; affiliations gain granted/revoked
+  capabilities, version and validity checks. API `/api/v1/platform/*` (super administrators only) and `/api/v1/me/password`.
+* Capability checks everywhere are unchanged (`RequireCapability`); only the way an actor's capability set is computed changed
+  (built-in + same-organisation custom roles + overrides). `RequestContext.PlatformAdminUserId` is separate from `Actor`.

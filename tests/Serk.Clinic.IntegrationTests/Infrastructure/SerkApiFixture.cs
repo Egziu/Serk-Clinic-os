@@ -56,7 +56,7 @@ public sealed class SerkApiFixture : IAsyncLifetime
 
         await new DatabaseMigrator(NullLogger<DatabaseMigrator>.Instance).MigrateAsync(OwnerConnectionString, MigrationsDirectory());
         await DevDatabaseBootstrap.EnsureAppLoginAsync(OwnerConnectionString, AppLogin, AppPassword, CancellationToken.None);
-        await DemoDataSeeder.SeedAsync(OwnerConnectionString, DemoPassword, CancellationToken.None);
+        await DemoDataSeeder.SeedAsync(OwnerConnectionString, DemoPassword, CancellationToken.None, superAdminPassword: DemoPassword);
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {

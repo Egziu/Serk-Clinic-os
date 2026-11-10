@@ -228,3 +228,37 @@ html { scroll-padding-top: 140px; }
 :root[data-theme="dark"] .heat-1 { fill: #184f95; } :root[data-theme="dark"] .heat-2 { fill: #256abf; }
 :root[data-theme="dark"] .heat-3 { fill: #3987e5; } :root[data-theme="dark"] .heat-4 { fill: #6da7ec; }
 :root[data-theme="dark"] .heat-5 { fill: #9ec5f4; } :root[data-theme="dark"] .heat-6 { fill: #cde2fb; }
+
+/* ---- System administration console ---- */
+:root { --info: #1f4f8a; --info-soft: #e8f0fb; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --info: #9cc2f5; --info-soft: #1b2737; } }
+:root[data-theme="dark"] { --info: #9cc2f5; --info-soft: #1b2737; }
+.badge-info { color: var(--info); background: var(--info-soft); }
+.badge-stack { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--rule); margin-bottom: var(--space-4); }
+.tabs [role="tab"] { font: inherit; font-weight: 600; background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 14px; color: var(--ink-muted); cursor: pointer; }
+.tabs [role="tab"][aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tabs [role="tab"]:hover { color: var(--ink); }
+.admin-split { display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.6fr); gap: var(--space-4); align-items: start; }
+@media (max-width: 1100px) { .admin-split { grid-template-columns: 1fr; } }
+.link-btn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; text-align: left; }
+.row-selected td { background: var(--accent-soft); }
+.cap-chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.cap-table { width: 100%; margin-bottom: var(--space-3); }
+.cap-table caption { text-align: left; font-weight: 700; padding: var(--space-2) 0; }
+.cap-table th[scope="row"] { font-weight: 600; }
+.cap-table select { width: auto; }
+.cap-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }
+.cap-group { border: 1px solid var(--rule); border-radius: var(--radius); padding: var(--space-2) var(--space-3); }
+.cap-group legend { font-weight: 700; padding: 0 4px; }
+.access-editor, .role-editor { border-color: var(--accent); }
+.org-card { border: 1px solid var(--rule); border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+.facility-list { margin: 0; padding-left: var(--space-4); }
+pre.json { white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; background: var(--surface-sunken); padding: var(--space-2); border-radius: 6px; margin: 4px 0 0; max-width: 520px; }
+.narrow { max-width: 560px; margin-left: auto; margin-right: auto; }
+.inline-select { width: auto; display: inline-block; padding: 4px 8px; margin-left: var(--space-2); }
+details > summary { cursor: pointer; font-weight: 600; }
+.cap-table th[scope="row"] { text-transform: none; letter-spacing: normal; font-size: 0.9rem; color: var(--ink); }
+.admin-split > section { min-width: 0; overflow-wrap: anywhere; }
+.admin-split table { table-layout: fixed; width: 100%; }
+.admin-split table th:first-child { width: 46%; }

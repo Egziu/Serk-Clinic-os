@@ -15,6 +15,10 @@ export interface Session {
   affiliations: Affiliation[];
   capabilities: string[];
   practitionerId: string | null;
+  /** System super administrator (platform scope; grants no patient data). */
+  isPlatformAdmin: boolean;
+  /** Set for new or reset accounts: only the password change is available until done. */
+  mustChangePassword: boolean;
 }
 
 export interface PatientSummary {

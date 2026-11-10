@@ -293,4 +293,101 @@ public class SuperAdminTests(SerkApiFixture f)
         await Assert.ThrowsAsync<PostgresException>(() => f.OwnerScalarAsync<int>("DELETE FROM identity.admin_changes RETURNING 1"));
         Assert.Equal(0L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM identity.admin_changes WHERE action='tampered'"));
     }
+
+    private async Task<(Guid Id, string Username, ApiClient Client)> NewSuperAdminAsync(ApiClient admin)
+    {
+        var (id, username) = await NewStaffAsync(admin);
+        await Ok(await admin.SendAsync(HttpMethod.Post, "/api/v1/platform/super-admins/grant",
+            new { userId = id, confirmPassword = SerkApiFixture.DemoPassword, reason = "test" }), HttpStatusCode.NoContent);
+        return (id, username, await FirstLoginAsync(username));
+    }
+
+    [Fact(DisplayName = "ACCESS-010 two super admins removing each other at the same moment never leave the system without one")]
+    public async Task Concurrent_cross_revocation_keeps_one_super_admin()
+    {
+        using var admin = await f.LoginAsync(DemoData.SuperAdmin);
+        var (b, _, bClient) = await NewSuperAdminAsync(admin);
+        var (c, _, cClient) = await NewSuperAdminAsync(admin);
+        var seed = DemoData.UserId(DemoData.SuperAdmin);
+        // Make B and C the only usable super administrators for this test, then restore the seeded one.
+        await f.OwnerScalarAsync<int>("UPDATE identity.platform_admins SET is_active=false WHERE user_id=@u RETURNING 1", ("u", seed));
+        try
+        {
+            var results = await Task.WhenAll(
+                bClient.SendAsync(HttpMethod.Post, "/api/v1/platform/super-admins/revoke", new { userId = c, confirmPassword = NewPassword }),
+                cClient.SendAsync(HttpMethod.Post, "/api/v1/platform/super-admins/revoke", new { userId = b, confirmPassword = NewPassword }));
+            Assert.Single(results, r => r.StatusCode == HttpStatusCode.NoContent);
+            Assert.Single(results, r => r.StatusCode == HttpStatusCode.UnprocessableEntity || r.StatusCode == HttpStatusCode.Conflict || r.StatusCode == HttpStatusCode.BadRequest);
+            Assert.Equal(1L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM identity.platform_admins WHERE is_active AND user_id = ANY(@ids)", ("ids", new[] { b, c })));
+        }
+        finally
+        {
+            await f.OwnerScalarAsync<int>("UPDATE identity.platform_admins SET is_active=true WHERE user_id=@u RETURNING 1", ("u", seed));
+            await f.OwnerScalarAsync<int>("UPDATE identity.platform_admins SET is_active=false WHERE user_id = ANY(@ids) RETURNING 1", ("ids", new[] { b, c }));
+            bClient.Dispose();
+            cClient.Dispose();
+        }
+    }
+
+    [Fact(DisplayName = "ACCESS-011 repeated wrong step-up passwords lock the account and end its sessions")]
+    public async Task Step_up_guessing_locks_out()
+    {
+        using var admin = await f.LoginAsync(DemoData.SuperAdmin);
+        var (b, username, bClient) = await NewSuperAdminAsync(admin);
+        using (bClient)
+        {
+            var (target, _) = await NewStaffAsync(admin);
+            for (var i = 0; i < 4; i++)
+            {
+                Assert.Equal("step_up_failed", await Code(await bClient.SendAsync(HttpMethod.Post, "/api/v1/platform/super-admins/grant", new { userId = target, confirmPassword = "guess-" + i })));
+            }
+
+            await bClient.SendAsync(HttpMethod.Post, "/api/v1/platform/super-admins/grant", new { userId = target, confirmPassword = "guess-final" });
+            Assert.Equal(HttpStatusCode.Unauthorized, (await bClient.GetAsync("/api/v1/platform/overview")).StatusCode);
+            using var again = f.Client();
+            Assert.Equal(HttpStatusCode.BadRequest, (await again.LoginRawAsync(username, NewPassword)).StatusCode); // locked
+            Assert.True(await f.OwnerScalarAsync<long>("SELECT count(*) FROM audit.security_events WHERE event_type='super_admin.step_up_lockout' AND user_id=@u", ("u", b)) >= 1);
+            Assert.False(await f.OwnerScalarAsync<bool>("SELECT is_active FROM identity.platform_admins WHERE user_id=@u", ("u", target)));
+        }
+    }
+
+    [Fact(DisplayName = "ACCESS-012 concurrent edits of one assignment: exactly one wins, the other gets 412; version is required")]
+    public async Task Concurrent_assignment_edits()
+    {
+        using var admin = await f.LoginAsync(DemoData.SuperAdmin);
+        var (_, facility) = await NewOrganisationAsync(admin);
+        var (userId, _) = await NewStaffAsync(admin);
+        var assignment = await Ok(await admin.SendAsync(HttpMethod.Post, $"/api/v1/platform/staff/{userId}/assignments",
+            new { facilityId = facility, roles = new[] { "Receptionist" } }), HttpStatusCode.Created);
+        var id = assignment.GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.PreconditionFailed, (await admin.SendAsync(HttpMethod.Put, $"/api/v1/platform/assignments/{id}",
+            new { facilityId = facility, roles = new[] { "Receptionist" } })).StatusCode); // no version
+        using var admin2 = await f.LoginAsync(DemoData.SuperAdmin);
+        var results = await Task.WhenAll(
+            admin.SendAsync(HttpMethod.Put, $"/api/v1/platform/assignments/{id}", new { facilityId = facility, roles = new[] { "Receptionist" }, revokedCapabilities = new[] { "patient.search" }, version = 1 }),
+            admin2.SendAsync(HttpMethod.Put, $"/api/v1/platform/assignments/{id}", new { facilityId = facility, roles = new[] { "Receptionist" }, grantedCapabilities = new[] { "analytics.read" }, version = 1 }));
+        Assert.Single(results, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.Single(results, r => r.StatusCode == HttpStatusCode.PreconditionFailed);
+        Assert.Equal(2, await f.OwnerScalarAsync<int>("SELECT version FROM identity.affiliations WHERE id=@i", ("i", id)));
+    }
+
+    [Fact(DisplayName = "ACCESS-013 custom roles cannot impersonate built-in role names; deactivating a super admin removes super administration")]
+    public async Task Naming_and_deactivation_rules()
+    {
+        using var admin = await f.LoginAsync(DemoData.SuperAdmin);
+        var (tenant, _) = await NewOrganisationAsync(admin);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.SendAsync(HttpMethod.Post, "/api/v1/platform/roles",
+            new { tenantId = tenant, name = "receptionist", capabilities = new[] { "clinical.note.sign" } })).StatusCode);
+        var role = await Ok(await admin.SendAsync(HttpMethod.Post, "/api/v1/platform/roles",
+            new { tenantId = tenant, name = "Desk helper", capabilities = new[] { "appointment.read" } }), HttpStatusCode.Created);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.SendAsync(HttpMethod.Put, $"/api/v1/platform/roles/{role.GetProperty("id").GetGuid()}",
+            new { name = "Clinician", capabilities = new[] { "appointment.read" }, isActive = true, version = 1 })).StatusCode);
+
+        var (b, _, bClient) = await NewSuperAdminAsync(admin);
+        bClient.Dispose();
+        await Ok(await admin.SendAsync(HttpMethod.Post, $"/api/v1/platform/staff/{b}/active", new { isActive = false, reason = "test" }), HttpStatusCode.NoContent);
+        await Ok(await admin.SendAsync(HttpMethod.Post, $"/api/v1/platform/staff/{b}/active", new { isActive = true, reason = "test" }), HttpStatusCode.NoContent);
+        Assert.False(await f.OwnerScalarAsync<bool>("SELECT is_active FROM identity.platform_admins WHERE user_id=@u", ("u", b))); // not silently restored
+        Assert.Equal("self_modification", await Code(await admin.SendAsync(HttpMethod.Post, $"/api/v1/platform/staff/{DemoData.UserId(DemoData.SuperAdmin)}/unlock")));
+    }
 }

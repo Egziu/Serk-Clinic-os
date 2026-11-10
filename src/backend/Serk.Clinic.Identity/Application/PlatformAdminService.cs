@@ -367,6 +367,8 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return guard.Error!;
         }
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockSuperAdminSetAsync(ct);
         var user = await db.StaffUsers.SingleOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null)
         {
@@ -388,15 +390,30 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         if (!body.IsActive)
         {
             await RevokeSessionsAsync(userId, "account_deactivated", ct);
+            // Deactivation also ends super administration, so reactivating an account never silently restores it.
+            if (await db.PlatformAdmins.SingleOrDefaultAsync(p => p.UserId == userId && p.IsActive, ct) is { } admin)
+            {
+                admin.IsActive = false;
+                admin.RevokedAt = clock.GetUtcNow();
+                admin.RevokedBy = ActorId;
+                Log("super_admin.revoke", "staff_user", userId, null, new { isSuperAdmin = true }, new { isSuperAdmin = false }, "Account deactivated");
+            }
         }
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         await SecurityEventAsync(body.IsActive ? "staff.activated" : "staff.deactivated", userId, ct);
         return true;
     }
 
     public async Task<Result<bool>> UnlockAsync(Guid userId, CancellationToken ct)
     {
+        var guard = NotSelf(userId);
+        if (!guard.IsSuccess)
+        {
+            return guard.Error!;
+        }
+
         var user = await db.StaffUsers.SingleOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null)
         {
@@ -559,7 +576,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return guard.Error!;
         }
 
-        if (body.Version is { } v && v != row.Version)
+        if (body.Version is not { } v || v != row.Version)
         {
             return Error.Precondition("assignment_changed", "Someone else changed this assignment. Reload and try again.");
         }
@@ -588,7 +605,11 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         row.UpdatedBy = ActorId;
         row.UpdatedAt = clock.GetUtcNow();
         Log(row.IsActive ? "assignment.update" : "assignment.deactivate", "staff_user", row.UserId, row.TenantId, before, Snapshot(row), body.Reason);
-        await db.SaveChangesAsync(ct);
+        if (!await TrySaveAsync(ct))
+        {
+            return Error.Precondition("assignment_changed", "Someone else changed this assignment. Reload and try again.");
+        }
+
         return (await AssignmentsAsync(row.UserId, ct)).Single(a => a.Id == row.Id);
     }
 
@@ -661,8 +682,8 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         }
 
         var code = AccessPolicy.CodeFromName(name.Value);
-        if (await db.RoleDefinitions.AnyAsync(r => r.TenantId == body.TenantId && (r.Code == code || r.Name == name.Value), ct)
-            || RoleCatalog.BuiltIns.Any(b => string.Equals(b.Name, name.Value, StringComparison.OrdinalIgnoreCase)))
+        if (await db.RoleDefinitions.AnyAsync(r => r.TenantId == body.TenantId && r.Code == code, ct)
+            || await RoleNameTakenAsync(body.TenantId, name.Value, null, ct))
         {
             return Error.Conflict("role_exists", "A role with that name already exists in this organisation.");
         }
@@ -685,7 +706,11 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         };
         db.RoleDefinitions.Add(row);
         Log("role.create", "role_definition", row.Id, row.TenantId, null, new { row.Code, row.Name, row.Capabilities });
-        await db.SaveChangesAsync(ct);
+        if (!await TrySaveAsync(ct))
+        {
+            return Error.Conflict("role_exists", "A role with that name already exists in this organisation.");
+        }
+
         return ToDto(row, 0);
     }
 
@@ -709,9 +734,9 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return (name.Error ?? caps.Error)!;
         }
 
-        if (await db.RoleDefinitions.AnyAsync(r => r.TenantId == row.TenantId && r.Id != row.Id && r.Name == name.Value, ct))
+        if (await RoleNameTakenAsync(row.TenantId, name.Value, row.Id, ct))
         {
-            return Error.Conflict("role_exists", "Another role in this organisation already has that name.");
+            return Error.Conflict("role_exists", "Another role in this organisation (or a built-in role) already has that name.");
         }
 
         var before = new { row.Name, row.Capabilities, row.IsActive, row.Version };
@@ -723,7 +748,11 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         row.UpdatedBy = ActorId;
         row.UpdatedAt = clock.GetUtcNow();
         Log("role.update", "role_definition", row.Id, row.TenantId, before, new { row.Name, row.Capabilities, row.IsActive, row.Version });
-        await db.SaveChangesAsync(ct);
+        if (!await TrySaveAsync(ct))
+        {
+            return Error.Precondition("role_changed", "Someone else changed this role. Reload and try again.");
+        }
+
         var count = await db.Affiliations.CountAsync(a => a.TenantId == row.TenantId && a.IsActive && a.Roles.Contains(row.Code), ct);
         return ToDto(row, count);
     }
@@ -806,6 +835,8 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return guard.Error!;
         }
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockSuperAdminSetAsync(ct);
         var row = await db.PlatformAdmins.SingleOrDefaultAsync(p => p.UserId == body.UserId && p.IsActive, ct);
         if (row is null)
         {
@@ -822,6 +853,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         row.RevokedBy = ActorId;
         Log("super_admin.revoke", "staff_user", body.UserId, null, new { isSuperAdmin = true }, new { isSuperAdmin = false }, body.Reason);
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         await SecurityEventAsync("super_admin.revoked", body.UserId, ct);
         return true;
     }
@@ -945,20 +977,78 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         return sessions.Count;
     }
 
-    private async Task<bool> IsLastActivePlatformAdminAsync(Guid userId, CancellationToken ct) =>
-        await db.PlatformAdmins.AnyAsync(p => p.UserId == userId && p.IsActive, ct)
-        && await db.PlatformAdmins.CountAsync(p => p.IsActive, ct) <= 1;
+    /// <summary>
+    /// Whether removing <paramref name="userId"/> would leave no usable super administrator. Only admins whose account is
+    /// active count. Callers hold <see cref="LockSuperAdminSetAsync"/> in the same transaction, so two administrators removing
+    /// each other concurrently cannot both pass this check.
+    /// </summary>
+    private async Task<bool> IsLastActivePlatformAdminAsync(Guid userId, CancellationToken ct)
+    {
+        var usable = from p in db.PlatformAdmins
+                     join u in db.StaffUsers on p.UserId equals u.Id
+                     where p.IsActive && u.IsActive
+                     select p.UserId;
+        return await usable.AnyAsync(id => id == userId, ct) && await usable.CountAsync(ct) <= 1;
+    }
+
+    /// <summary>Saves; returns false on an optimistic-concurrency conflict or a unique-key race (mapped to 412/409 by callers).</summary>
+    private async Task<bool> TrySaveAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            db.ChangeTracker.Clear();
+            return false;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            db.ChangeTracker.Clear();
+            return false;
+        }
+    }
+
+    private async Task<bool> RoleNameTakenAsync(Guid tenantId, string name, Guid? exceptId, CancellationToken ct)
+    {
+        if (RoleCatalog.BuiltIns.Any(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase) || string.Equals(b.Code, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        var names = await db.RoleDefinitions.AsNoTracking().Where(r => r.TenantId == tenantId && r.Id != exceptId).Select(r => r.Name).ToListAsync(ct);
+        return names.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Transaction-scoped lock serialising every change to the set of super administrators.</summary>
+    private Task<int> LockSuperAdminSetAsync(CancellationToken ct) =>
+        db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(hashtextextended('serk:platform_admins', 0))", ct);
 
     private async Task<Result<bool>> ConfirmActorPasswordAsync(string? password, CancellationToken ct)
     {
-        var actor = await db.StaffUsers.AsNoTracking().SingleAsync(u => u.Id == ActorId, ct);
+        var actor = await db.StaffUsers.SingleAsync(u => u.Id == ActorId, ct);
         if (string.IsNullOrEmpty(password) || password.Length > 256
             || Hasher.VerifyHashedPassword(actor, actor.PasswordHash, password) == PasswordVerificationResult.Failed)
         {
-            await SecurityEventAsync("super_admin.step_up_failed", actor.Id, ct);
+            // A stolen session must not be able to guess the confirmation password: failures count towards lockout, and at
+            // the limit the account is locked and every session (including this one) ends.
+            actor.FailedLoginCount++;
+            var locked = actor.FailedLoginCount >= SessionPolicy.MaxFailedLogins;
+            if (locked)
+            {
+                actor.LockedUntil = clock.GetUtcNow() + SessionPolicy.LockoutDuration;
+                await RevokeSessionsAsync(actor.Id, "step_up_lockout", ct);
+            }
+
+            await db.SaveChangesAsync(ct);
+            db.ChangeTracker.Clear();
+            await SecurityEventAsync(locked ? "super_admin.step_up_lockout" : "super_admin.step_up_failed", actor.Id, ct);
             return Error.Forbidden("step_up_failed", "Confirm with your own current password to change super administrators.");
         }
 
+        actor.FailedLoginCount = 0;
         return true;
     }
 

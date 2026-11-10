@@ -33,9 +33,13 @@ Secrets live only in Railway variables, never in git.
 - Verified: E2E 9/9 against the live site (see TEST_EVIDENCE_INDEX).
 - Data protection keys are ephemeral (in-memory); acceptable here because sessions use the app's own revocable tokens.
 
+## Super administrator (demo)
+`super.admin` (synthetic, same demo password) is the seeded system super administrator. It sees the **System admin** console
+only — no patient data. Create a second super administrator from the console so one remains if the first is locked out.
+
 ## Verify after deploy
 1. `GET /health/ready` → 200.  2. Run the E2E suite against the deployment (re-runnable on an existing database; wait 1 minute between runs because of the
-   login rate limit). From a proxied network add `SERK_E2E_PROXY=<proxy URL>` (and `NODE_EXTRA_CA_CERTS` if it intercepts TLS):
+   login rate limit — the suite signs in ~15 times, so run the spec files in two batches a minute apart). From a proxied network add `SERK_E2E_PROXY=<proxy URL>` (and `NODE_EXTRA_CA_CERTS` if it intercepts TLS):
    `SERK_E2E_BASE_URL=https://<domain> SERK_E2E_PASSWORD=<demo password> npx playwright test --trace off` (from `src/web`).
 3. Record the result in `docs/testing/TEST_EVIDENCE_INDEX.md`.
 

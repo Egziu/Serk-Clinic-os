@@ -60,3 +60,18 @@ AUTO-002,Scheduling,No-show sweeper marks only Booked past grace; audited; idemp
 ANALYTICS-001,Analytics,Statistics correct on known data (Wilson CI medians P90 trend Ethiopian dates); no PHI in output,Yes,Unit + Integration,PASS (automated),StatisticsTests; AnalyticsTests
 ANALYTICS-002,Analytics,Authorization (owner/admin only); small-cell suppression (<5) for demographics; date range bounded (400 not 500),Yes,Integration,PASS (automated),AnalyticsTests; Input_hardening
 HARDEN-001,Platform,Numeric enum values rejected; Server-Timing absent on sign-in and verify,Yes,Integration,PASS (automated),Input_hardening
+ACCESS-001,Identity,Only super administrators reach /api/v1/platform (clinic admin owner clinician support refused; denials logged),Yes,Integration + E2E,PASS (automated),SuperAdminTests.Only_super_admins_reach_platform_api; super-admin.spec.ts
+ACCESS-002,Identity,Super administrator has no patient or clinical data access; no password hashes in admin responses,Yes,Integration,PASS (automated),Super_admin_has_no_phi_access
+ACCESS-003,Identity,Custom role + per-assignment grant/remove give exactly the previewed permissions; forced password change gates access,Yes,Integration (mutation-checked) + E2E,PASS (automated),Provisioning_custom_role_and_overrides; super-admin.spec.ts
+ACCESS-004,Identity,Role edits / assignment deactivation / account deactivation take effect on the next request; stale role version 412,Yes,Integration,PASS (automated),Changes_take_effect_immediately
+ACCESS-005,Identity,No self-modification of access account password or practitioner profile,Yes,Integration (mutation-checked) + E2E,PASS (automated),No_self_modification
+ACCESS-006,Identity,Super admin grant/revoke require step-up password; revocation immediate,Yes,Integration (mutation-checked),PASS (automated),Super_admin_grant_and_revoke
+ACCESS-007,Identity,Invalid input rejected: unknown permission; cross-organisation role; grant∩remove; validity; duplicates; weak password,Yes,Integration + unit,PASS (automated),Validation_rules; AccessPolicyTests
+ACCESS-008,Identity,Not-yet-valid assignment grants nothing; password reset forces change and ends sessions,Yes,Integration,PASS (automated),Validity_window_and_password_reset
+ACCESS-009,Identity,Admin change log append-only even for the database owner,Yes,Integration,PASS (automated),Change_log_is_append_only
+ACCESS-010,Identity,Two super admins removing each other concurrently never leave zero (advisory lock; only active accounts count),Yes,Integration (mutation-checked 5/5),PASS (automated),Concurrent_cross_revocation_keeps_one_super_admin
+ACCESS-011,Identity,Repeated wrong step-up passwords lock the account and end its sessions,Yes,Integration,PASS (automated),Step_up_guessing_locks_out
+ACCESS-012,Identity,Concurrent edits of one assignment: one wins, other 412; version required,Yes,Integration,PASS (automated),Concurrent_assignment_edits
+ACCESS-013,Identity,Custom roles cannot use built-in names; deactivation removes super administration; no self-unlock,Yes,Integration,PASS (automated),Naming_and_deactivation_rules
+ACCESS-014,Identity,One super administrator cannot obtain clinical access or impersonate staff without a second person (two-person rule),Yes,—,NOT IMPLEMENTED (owner decision pending; see review round 3 F1),
+HARDEN-002,Identity,Login attempts beyond the per-client limit get 429 with a clear message,Yes,Integration,PASS (automated),RateLimitTests.Login_rate_limit_applies

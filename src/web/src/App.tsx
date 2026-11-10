@@ -9,12 +9,14 @@ import { EncounterPage } from "./pages/EncounterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage, type FacilitySettings } from "./pages/SettingsPage";
 import { SignaturePage } from "./pages/SignaturePage";
+import { AccountPage } from "./pages/AccountPage";
+import { AdminPage } from "./pages/admin/AdminPage";
 import { Icon } from "./components/icons";
 import { applyAccent, applyThemePreference, loadThemePreference, type ThemePreference } from "./lib/theme";
 
 export type Route =
   | { name: "home" } | { name: "reception" } | { name: "worklist" } | { name: "encounter"; id: string }
-  | { name: "dashboard" } | { name: "settings" } | { name: "signature" };
+  | { name: "dashboard" } | { name: "settings" } | { name: "signature" } | { name: "admin" } | { name: "account" };
 
 function parseRoute(): Route {
   const m = window.location.pathname.match(/^\/encounters\/([0-9a-f-]{36})$/i);
@@ -24,6 +26,8 @@ function parseRoute(): Route {
   if (window.location.pathname.startsWith("/dashboard")) return { name: "dashboard" };
   if (window.location.pathname.startsWith("/settings")) return { name: "settings" };
   if (window.location.pathname.startsWith("/signature")) return { name: "signature" };
+  if (window.location.pathname.startsWith("/admin")) return { name: "admin" };
+  if (window.location.pathname.startsWith("/account")) return { name: "account" };
   return { name: "home" };
 }
 
@@ -41,11 +45,11 @@ export function App() {
 
   // Clinic branding (accent colour + logo) once a facility is active.
   useEffect(() => {
-    if (!session?.activeAffiliationId) return;
+    if (!session?.activeAffiliationId || session.mustChangePassword) return;
     api.get<FacilitySettings>("/api/v1/facility/settings")
       .then((r) => { setFacility(r.data); applyAccent(r.data.accentColor); })
       .catch(() => { /* branding is cosmetic; defaults remain */ });
-  }, [session?.activeAffiliationId]);
+  }, [session?.activeAffiliationId, session?.mustChangePassword]);
 
   const navigate = useCallback((r: Route) => {
     window.history.pushState(null, "", routeToPath(r));
@@ -74,21 +78,45 @@ export function App() {
     setSession(s);
   };
 
+  const logout = async () => {
+    try {
+      await api.post("/api/v1/auth/logout");
+    } finally {
+      onSession(null);
+      window.history.pushState(null, "", "/");
+    }
+  };
+
   if (session === undefined) return <p className="sr-only" role="status">Loading…</p>;
-  if (session === null || session.activeAffiliationId === null) {
+  // A temporary (administrator-set) password must be replaced before anything else; the server grants nothing meanwhile.
+  if (session?.mustChangePassword) {
+    return (
+      <div className="login-wrap">
+        <div className="synthetic-banner" role="note">{t("syntheticBanner")}</div>
+        <main id="main" tabIndex={-1}>
+          <AccountPage session={session} forced onSession={onSession} />
+          <p className="narrow"><button className="btn" onClick={logout}><Icon name="logout" size={16} /> {t("signOut")}</button></p>
+        </main>
+      </div>
+    );
+  }
+  // Super administrators work without a clinic assignment (system console only); everyone else must choose a facility.
+  if (session === null || (session.activeAffiliationId === null && !session.isPlatformAdmin)) {
     return <LoginPage session={session} onSession={onSession} />;
   }
 
   const can = (cap: string) => session.capabilities.includes(cap);
   const affiliation = session.affiliations.find((a) => a.id === session.activeAffiliationId);
   // Landing page follows the role's primary task: management -> dashboard, clinical staff -> worklist, front desk -> reception.
-  const home: Route = can("clinical.encounter.read") ? { name: "worklist" } : can("patient.search") ? { name: "reception" } : can("analytics.read") ? { name: "dashboard" } : { name: "settings" };
+  const home: Route = can("clinical.encounter.read") ? { name: "worklist" } : can("patient.search") ? { name: "reception" } : can("analytics.read") ? { name: "dashboard" }
+    : can("branding.manage") || can("printers.manage") ? { name: "settings" } : session.isPlatformAdmin ? { name: "admin" } : { name: "account" };
   const allowed = (r: Route): boolean =>
     r.name === "reception" ? can("patient.search")
       : r.name === "worklist" || r.name === "encounter" ? can("clinical.encounter.read")
       : r.name === "dashboard" ? can("analytics.read")
       : r.name === "settings" ? can("branding.manage") || can("printers.manage")
       : r.name === "signature" ? can("clinical.note.sign")
+      : r.name === "admin" ? session.isPlatformAdmin
       : true;
   const effectiveRoute: Route = route.name === "home" || !allowed(route) ? home : route;
   const navItems: { route: Route; label: string; icon: string; show: boolean }[] = [
@@ -97,16 +125,15 @@ export function App() {
     { route: { name: "worklist" }, label: t("worklist"), icon: "worklist", show: can("clinical.encounter.read") },
     { route: { name: "signature" }, label: "My signature", icon: "signature", show: can("clinical.note.sign") },
     { route: { name: "settings" }, label: "Settings", icon: "settings", show: can("branding.manage") || can("printers.manage") },
+    { route: { name: "admin" }, label: "System admin", icon: "shield", show: session.isPlatformAdmin },
+    { route: { name: "account" }, label: "My account", icon: "key", show: true },
   ];
   const isCurrent = (r: Route) => effectiveRoute.name === r.name || (r.name === "worklist" && effectiveRoute.name === "encounter");
 
-  const logout = async () => {
-    try {
-      await api.post("/api/v1/auth/logout");
-    } finally {
-      onSession(null);
-      window.history.pushState(null, "", "/");
-    }
+  const chooseFacility = async (affiliationId: string) => {
+    if (!affiliationId) return;
+    const r = await api.post<Session>("/api/v1/auth/session/affiliation", { affiliationId });
+    onSession(r.data);
   };
 
   return (
@@ -132,11 +159,20 @@ export function App() {
         <div className="shell-main">
           <header className="topbar">
             <div className="context">
-              <strong>{affiliation?.facilityName}</strong> · {affiliation?.tenantName}
+              {affiliation ? <><strong>{affiliation.facilityName}</strong> · {affiliation.tenantName}</> : <strong>System administration</strong>}
+              {session.isPlatformAdmin && session.affiliations.length > 0 && (
+                <>
+                  {" "}<label className="sr-only" htmlFor="facility-switch">Work at facility</label>
+                  <select id="facility-switch" className="inline-select" value={session.activeAffiliationId ?? ""} onChange={(e) => void chooseFacility(e.target.value)}>
+                    <option value="">No facility (system console)</option>
+                    {session.affiliations.map((a) => <option key={a.id} value={a.id}>{a.facilityName} — {a.tenantName}</option>)}
+                  </select>
+                </>
+              )}
             </div>
             <div className="btn-row">
               <span className="context">
-                Signed in as <strong>{session.displayName}</strong> ({affiliation?.roles.join(", ")})
+                Signed in as <strong>{session.displayName}</strong> ({[session.isPlatformAdmin ? "Super admin" : null, ...(affiliation?.roles ?? [])].filter(Boolean).join(", ")})
               </span>
               <div className="theme-switch" role="group" aria-label="Colour theme">
                 {([["light", "sun", "Light theme"], ["dark", "moon", "Dark theme"], ["system", "monitor", "Use system theme"]] as const).map(([v, icon, label]) => (
@@ -153,6 +189,8 @@ export function App() {
             {effectiveRoute.name === "dashboard" && <DashboardPage />}
             {effectiveRoute.name === "settings" && <SettingsPage canBrand={can("branding.manage")} canPrinters={can("printers.manage")} onSettingsChanged={setFacility} />}
             {effectiveRoute.name === "signature" && <SignaturePage />}
+            {effectiveRoute.name === "admin" && <AdminPage currentUserId={session.userId} />}
+            {effectiveRoute.name === "account" && <AccountPage session={session} forced={false} onSession={onSession} />}
           </main>
         </div>
       </div>

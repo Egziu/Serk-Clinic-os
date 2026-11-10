@@ -152,7 +152,18 @@ public static class SerkHost
                 throw new InvalidOperationException("The hosted Demo environment needs its own Seed:DemoPassword (at least 16 characters, not the published dev password).");
             }
 
-            await DemoDataSeeder.SeedAsync(ownerConnection!, demoPassword, CancellationToken.None);
+            // The super administrator never shares the demo password in a hosted demo: it needs its own secret
+            // (Seed:SuperAdminPassword) and must be changed at first sign-in. Without that secret no super admin is seeded there.
+            var hosted = app.Environment.IsEnvironment("Demo");
+            var superPassword = app.Configuration["Seed:SuperAdminPassword"];
+            if (hosted && superPassword is not null && (superPassword.Length < 16 || superPassword == demoPassword || superPassword == PublishedDevDemoPassword))
+            {
+                throw new InvalidOperationException("Seed:SuperAdminPassword must be at least 16 characters and differ from the demo password.");
+            }
+
+            await DemoDataSeeder.SeedAsync(ownerConnection!, demoPassword, CancellationToken.None,
+                superAdminPassword: hosted ? superPassword : superPassword ?? demoPassword,
+                superAdminMustChange: hosted);
         }
 
         Configure(app);

@@ -36,7 +36,12 @@ Legal/regulatory review: PENDING — no compliance claimed; signature-image use 
 Deployment: hosted SYNTHETIC Demo on Railway (owner-requested, 2026-11-09): https://web-demo-cd4b.up.railway.app —
   E2E 9/9 PASS against the live site. Not staging/production; must never hold real patient data (no MFA, no backups).
   See docs/operations/RAILWAY_DEMO.md
+System administration (2026-11-10): super administrator console + API, custom roles, per-assignment permission overrides,
+  validity windows, forced password change, append-only change log (ADR-0013). Review round 3: High/Medium fixed with tests;
+  CRITICAL F1 (no two-person rule — one super admin can obtain clinical access via a second account) OPEN pending owner
+  decision; F3 (separate DB role for identity writes) open.
 Known blockers / risks (ranked):
+  0. Super-admin two-person rule not implemented (ACCESS-014, review round 3 F1)
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed
   4. Open review items (rate limits, composite FKs, outbox RLS/worker role, identity grants, forwarded headers/HSTS)
   5. Dental DENT-004 (estimate/consent) not implemented

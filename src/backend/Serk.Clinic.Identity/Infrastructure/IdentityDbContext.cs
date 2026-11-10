@@ -159,6 +159,9 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         modelBuilder.Entity<RoleDefinitionRow>().HasOne<TenantRow>().WithMany().HasForeignKey(r => r.TenantId);
         modelBuilder.Entity<AdminChangeRow>().HasOne<TenantRow>().WithMany().HasForeignKey(c => c.TenantId);
         modelBuilder.Entity<AdminChangeRow>().HasOne<StaffUserRow>().WithMany().HasForeignKey(c => c.ActorUserId);
+        // Optimistic concurrency: an UPDATE only succeeds if the version read is still current (two editors cannot both win).
+        modelBuilder.Entity<AffiliationRow>().Property(a => a.Version).IsConcurrencyToken();
+        modelBuilder.Entity<RoleDefinitionRow>().Property(r => r.Version).IsConcurrencyToken();
         modelBuilder.ApplySnakeCaseColumns();
     }
 }

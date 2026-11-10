@@ -41,6 +41,18 @@ PDFs and their hashes; audit trail; staff credentials and sessions; tenant bound
 | Re-identification via analytics | 1-day range shows a single registration by sex/age | `security_invoker` PHI-free fact views; demographic counts 1–4 suppressed; range bounded (2000…today+1y, ≤ 366 days); audited | ANALYTICS-002 | Heatmap counts not suppressed (operational, no demographics); complementary disclosure not modelled; no per-user rate limit on analytics/uploads (open) |
 | Timing side channel | Server-Timing on sign-in | Header omitted on `/api/v1/auth/*` and `/api/v1/verify/*`; 0.1 ms resolution elsewhere | HARDEN-001 | — |
 
+## System super administration (added 2026-11-10, ADR-0013)
+
+| Threat | Example | Controls implemented | Evidence | Residual / open |
+|---|---|---|---|---|
+| Super admin reads patient data | "Control the whole system" used as a PHI back door | Platform role grants only `/api/v1/platform/*`; no actor/tenant context; responses contain no patient data | ACCESS-002 | A super admin can create a second account and give it clinical access (audited, not dual-controlled) — **two-person rule open** |
+| Self-escalation | Admin edits own assignment, revives own revoked status | Self-modification refused on every account/access route; step-up for super-admin changes | ACCESS-005/006 (mutation-checked) | — |
+| Account takeover of a super admin | Phished password | 15-min idle timeout, lockout, rate limit, step-up for admin changes | ACCESS-006, HARDEN-002 | **No MFA (IDENT-001)** — blocker for any real deployment |
+| Cross-organisation role injection | Use org B's custom role in org A | Roles resolved only within the assignment's own organisation; codes namespaced `custom.*`; unknown roles grant nothing | ACCESS-007, AccessPolicyTests | — |
+| Hidden or deniable access changes | Silent edits, log tampering | Change log written in the same transaction; append-only trigger even for the owner; security events | ACCESS-009 | DB superuser can disable triggers (as for audit) |
+| Stale or temporary credentials | Admin-set password reused | Forced change before any access; reset ends sessions; password policy | ACCESS-003/008 | Temporary password is shown once in the browser; secure hand-over is procedural |
+| Broadened runtime DB grants | Injection writing identity tables | Column-limited INSERT/UPDATE only, no DELETE; all SQL parameterised (EF/Npgsql) | migration 0011 | Identity tables have no RLS (by design, ADR-0003) |
+
 ## Attackers considered
 Internet users (anonymous verify endpoint, login), curious insiders (search, duplicate probe — now audited), rogue tenant
 (tenant B staff), compromised workstation (session revocation), malicious tools/plugins (no PHI to tools; synthetic data

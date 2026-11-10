@@ -63,7 +63,12 @@ public static class DemoData
 
 public static class DemoDataSeeder
 {
-    public static async Task SeedAsync(string ownerConnection, string password, CancellationToken ct)
+    /// <param name="superAdminPassword">
+    /// Separate secret for the synthetic super administrator (never the shared demo password in a hosted environment).
+    /// Null = do not seed a super administrator.
+    /// </param>
+    /// <param name="superAdminMustChange">Hosted demos force the owner to choose their own super-admin password at first sign-in.</param>
+    public static async Task SeedAsync(string ownerConnection, string password, CancellationToken ct, string? superAdminPassword = null, bool superAdminMustChange = false)
     {
         await using var conn = new NpgsqlConnection(ownerConnection);
         await conn.OpenAsync(ct);
@@ -83,7 +88,7 @@ public static class DemoDataSeeder
             """,
             ("f1", DemoData.FacilityABole), ("f2", DemoData.FacilityAPiassa), ("f3", DemoData.FacilityBHawassa), ("a", DemoData.TenantA), ("b", DemoData.TenantB));
 
-        foreach (var (user, id, name) in DemoData.Users)
+        foreach (var (user, id, name) in DemoData.Users.Where(u => u.User != DemoData.SuperAdmin))
         {
             await Exec(conn, tx, "INSERT INTO identity.staff_users (id, username, display_name, password_hash, is_active, created_at) VALUES (@id, @u, @n, @h, true, @now) ON CONFLICT DO NOTHING",
                 ("id", id), ("u", user), ("n", name), ("h", hash), ("now", now));
@@ -110,8 +115,14 @@ public static class DemoDataSeeder
         await Affiliation(conn, tx, 12, DemoData.ClinicAdminB, DemoData.TenantB, DemoData.FacilityBHawassa, ["ClinicAdmin"], ct);
         // DemoData.Support intentionally has NO affiliation: platform support has no routine PHI access.
         // The super administrator also has NO affiliation: system-wide control of access, but no patient data by default.
-        await Exec(conn, tx, "INSERT INTO identity.platform_admins (user_id, is_active, granted_at) VALUES (@u, true, @now) ON CONFLICT DO NOTHING",
-            ("u", DemoData.UserId(DemoData.SuperAdmin)), ("now", now));
+        if (superAdminPassword is not null)
+        {
+            var (_, superId, superName) = DemoData.Users.Single(u => u.User == DemoData.SuperAdmin);
+            await Exec(conn, tx, "INSERT INTO identity.staff_users (id, username, display_name, password_hash, is_active, must_change_password, created_at) VALUES (@id, @u, @n, @h, true, @m, @now) ON CONFLICT DO NOTHING",
+                ("id", superId), ("u", DemoData.SuperAdmin), ("n", superName), ("h", AuthService.HashPassword(superAdminPassword)), ("m", superAdminMustChange), ("now", now));
+            await Exec(conn, tx, "INSERT INTO identity.platform_admins (user_id, is_active, granted_at) VALUES (@u, true, @now) ON CONFLICT DO NOTHING",
+                ("u", superId), ("now", now));
+        }
 
         await Patient(conn, tx, DemoData.PatientSelam, DemoData.TenantA, DemoData.FacilityABole, "MRN-900001", "Selam", "Tesfaye", "Bekele", "Female", new DateOnly(1990, 3, 14), "+251911000001", now, ct);
         await Patient(conn, tx, DemoData.PatientDawit, DemoData.TenantA, DemoData.FacilityABole, "MRN-900002", "Dawit", "Mulugeta", "Assefa", "Male", new DateOnly(1978, 11, 2), "+251911000002", now, ct);
