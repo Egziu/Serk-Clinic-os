@@ -67,4 +67,19 @@ public static class RoleCatalog
     }
 
     public static bool IsKnownRole(string role) => Map.ContainsKey(role);
+
+    private static readonly (string Code, string Name, string Description)[] Descriptions =
+    [
+        (Receptionist, "Receptionist", "Registration, booking and check-in. Demographics only — no allergies or notes."),
+        (Nurse, "Nurse", "Allergies, check-in and reading encounters. Cannot write or sign notes."),
+        (Clinician, "Clinician", "Full clinical documentation: notes, signatures, allergies and documents."),
+        (Dentist, "Dentist", "Clinician permissions plus the dental chart."),
+        (Cashier, "Cashier", "Patient lookup for billing desks."),
+        (ClinicAdmin, "Clinic administrator", "Staff sessions, audit, branding, printers and analytics. No clinical access."),
+        (Owner, "Owner / management", "Aggregated analytics, branding, printers and audit. No patient-level access."),
+    ];
+
+    /// <summary>Built-in roles as read-only definitions (the tested safety baseline; clone them to customise).</summary>
+    public static IReadOnlyList<RoleDefinition> BuiltIns { get; } =
+        Descriptions.Select(d => new RoleDefinition(d.Code, d.Name, d.Description, Map[d.Code].Order(StringComparer.Ordinal).ToList(), true)).ToList();
 }

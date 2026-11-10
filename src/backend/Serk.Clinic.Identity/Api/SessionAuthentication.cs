@@ -39,6 +39,8 @@ public sealed class SessionAuthenticationHandler(
 
         Context.Items[SessionItemKey] = session;
         requestContext.Actor = session.Actor;
+        requestContext.UserId = session.UserId;
+        requestContext.PlatformAdminUserId = session.IsPlatformAdmin ? session.UserId : null;
         var identity = new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, session.UserId.ToString()), new Claim("sid", session.SessionId.ToString())],
             SchemeName);

@@ -20,12 +20,20 @@ public sealed record SessionDto(
     Guid? ActiveAffiliationId,
     IReadOnlyList<AffiliationDto> Affiliations,
     IReadOnlyList<string> Capabilities,
-    Guid? PractitionerId);
+    Guid? PractitionerId,
+    bool IsPlatformAdmin,
+    bool MustChangePassword);
 
 public sealed record LoginOutcome(string SessionToken, SessionDto Session);
 
 /// <summary>Validated session used by the authentication handler.</summary>
-public sealed record ValidatedSession(Guid SessionId, Guid UserId, string CsrfToken, StaffActor? Actor);
+/// <summary>
+/// Validated session used by the authentication handler. While <see cref="MustChangePassword"/> is set, the session carries
+/// no actor and no platform role: only the session, password-change and logout endpoints work.
+/// </summary>
+public sealed record ValidatedSession(Guid SessionId, Guid UserId, string CsrfToken, StaffActor? Actor, bool IsPlatformAdmin, bool MustChangePassword);
+
+public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword);
 
 /// <summary>
 /// Development/pilot credential login with lockout and revocable server-side sessions.
@@ -124,13 +132,15 @@ public sealed class AuthService(
         var now = clock.GetUtcNow();
         var hash = HashToken(token);
         var session = await db.Sessions.SingleOrDefaultAsync(s => s.TokenHash == hash, ct);
-        if (session is null || session.RevokedAt is not null || session.AbsoluteExpiresAt <= now || now - session.LastSeenAt > SessionPolicy.IdleTimeout)
+        if (session is null || session.RevokedAt is not null || session.AbsoluteExpiresAt <= now)
         {
             return null;
         }
 
         var user = await db.StaffUsers.AsNoTracking().SingleAsync(u => u.Id == session.UserId, ct);
-        if (!user.IsActive)
+        var isPlatformAdmin = await IsActivePlatformAdminAsync(user.Id, ct);
+        var idle = isPlatformAdmin ? SessionPolicy.PlatformAdminIdleTimeout : SessionPolicy.IdleTimeout;
+        if (!user.IsActive || now - session.LastSeenAt > idle)
         {
             return null;
         }
@@ -141,27 +151,99 @@ public sealed class AuthService(
             await db.SaveChangesAsync(ct);
         }
 
-        StaffActor? actor = null;
-        if (session.ActiveAffiliationId is { } affiliationId)
+        return await BuildSessionAsync(session.Id, session.CsrfToken, session.ActiveAffiliationId, user, isPlatformAdmin, now, ct);
+    }
+
+    /// <summary>
+    /// Resolves the request identity: the actor for the selected affiliation (effective capabilities from built-in and
+    /// custom roles plus per-assignment overrides) and the platform-administrator flag. Both are withheld while a password
+    /// change is pending.
+    /// </summary>
+    private async Task<ValidatedSession> BuildSessionAsync(Guid sessionId, string csrf, Guid? affiliationId, StaffUserRow user, bool isPlatformAdmin, DateTimeOffset now, CancellationToken ct)
+    {
+        if (user.MustChangePassword)
         {
-            var affiliation = await db.Affiliations.AsNoTracking().SingleOrDefaultAsync(a => a.Id == affiliationId, ct);
+            return new ValidatedSession(sessionId, user.Id, csrf, null, false, true);
+        }
+
+        StaffActor? actor = null;
+        if (affiliationId is { } affId)
+        {
+            var affiliation = await db.Affiliations.AsNoTracking().SingleOrDefaultAsync(a => a.Id == affId && a.UserId == user.Id, ct);
             if (affiliation is not null && IsAffiliationActive(affiliation, now))
             {
                 var practitioner = await db.Practitioners.AsNoTracking()
                     .SingleOrDefaultAsync(p => p.UserId == user.Id && p.TenantId == affiliation.TenantId, ct);
                 actor = new StaffActor(
                     user.Id,
-                    session.Id,
+                    sessionId,
                     affiliation.Id,
                     affiliation.TenantId,
                     affiliation.FacilityId,
                     practitioner?.Id,
                     user.DisplayName,
-                    RoleCatalog.CapabilitiesFor(affiliation.Roles));
+                    await EffectiveCapabilitiesAsync(affiliation, ct));
             }
         }
 
-        return new ValidatedSession(session.Id, user.Id, session.CsrfToken, actor);
+        return new ValidatedSession(sessionId, user.Id, csrf, actor, isPlatformAdmin, false);
+    }
+
+    /// <summary>Effective capabilities of an assignment: (built-in ∪ active custom roles of the same tenant ∪ granted) − revoked.</summary>
+    internal async Task<IReadOnlySet<string>> EffectiveCapabilitiesAsync(AffiliationRow affiliation, CancellationToken ct)
+    {
+        var customCodes = affiliation.Roles.Where(r => !RoleCatalog.IsKnownRole(r)).ToArray();
+        var custom = customCodes.Length == 0
+            ? new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
+            : await db.RoleDefinitions.AsNoTracking()
+                .Where(r => r.TenantId == affiliation.TenantId && r.IsActive && customCodes.Contains(r.Code))
+                .ToDictionaryAsync(r => r.Code, r => (IReadOnlyCollection<string>)r.Capabilities, StringComparer.Ordinal, ct);
+        return AccessPolicy.Effective(affiliation.Roles, custom, affiliation.GrantedCapabilities, affiliation.RevokedCapabilities);
+    }
+
+    private Task<bool> IsActivePlatformAdminAsync(Guid userId, CancellationToken ct) =>
+        db.PlatformAdmins.AsNoTracking().AnyAsync(p => p.UserId == userId && p.IsActive, ct);
+
+    /// <summary>
+    /// Changes the signed-in user's own password (also completes a forced change). Requires the current password, applies
+    /// the password policy, clears the must-change flag and revokes the user's OTHER sessions.
+    /// </summary>
+    public async Task<Result<SessionDto>> ChangeOwnPasswordAsync(ValidatedSession current, ChangePasswordRequest body, CancellationToken ct)
+    {
+        var user = await db.StaffUsers.SingleAsync(u => u.Id == current.UserId, ct);
+        if (string.IsNullOrEmpty(body.CurrentPassword) || body.CurrentPassword.Length > 256
+            || Hasher.VerifyHashedPassword(user, user.PasswordHash, body.CurrentPassword) == PasswordVerificationResult.Failed)
+        {
+            await SecurityEventAsync("password.change_failed", "wrong_current_password", user.Id, null, ct);
+            return Error.Validation("invalid_current_password", "The current password is not correct.");
+        }
+
+        var policy = AccessPolicy.ValidateNewPassword(body.NewPassword, user.Username);
+        if (!policy.IsSuccess)
+        {
+            return policy.Error!;
+        }
+
+        if (Hasher.VerifyHashedPassword(user, user.PasswordHash, body.NewPassword!) != PasswordVerificationResult.Failed)
+        {
+            return Error.Validation("password_reused", "Choose a password different from the current one.");
+        }
+
+        var now = clock.GetUtcNow();
+        user.PasswordHash = HashPassword(body.NewPassword!);
+        user.MustChangePassword = false;
+        user.PasswordChangedAt = now;
+        var others = await db.Sessions.Where(s => s.UserId == user.Id && s.Id != current.SessionId && s.RevokedAt == null).ToListAsync(ct);
+        foreach (var other in others)
+        {
+            other.RevokedAt = now;
+            other.RevokedReason = "password_changed";
+        }
+
+        await db.SaveChangesAsync(ct);
+        await SecurityEventAsync("password.changed", "success", user.Id, null, ct);
+        var refreshed = await ValidateByIdAsync(current.SessionId, ct);
+        return await DescribeAsync(refreshed, ct);
     }
 
     public async Task<Result<SessionDto>> SelectAffiliationAsync(ValidatedSession current, Guid affiliationId, CancellationToken ct)
@@ -229,27 +311,18 @@ public sealed class AuthService(
             session.Actor?.AffiliationId,
             affiliations,
             session.Actor?.Capabilities.Order(StringComparer.Ordinal).ToList() ?? [],
-            session.Actor?.PractitionerId);
+            session.Actor?.PractitionerId,
+            session.IsPlatformAdmin,
+            session.MustChangePassword);
     }
 
     private async Task<ValidatedSession> ValidateByIdAsync(Guid sessionId, CancellationToken ct)
     {
-        var row = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId, ct);
         db.ChangeTracker.Clear();
-        var now = clock.GetUtcNow();
+        var row = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId, ct);
         var user = await db.StaffUsers.AsNoTracking().SingleAsync(u => u.Id == row.UserId, ct);
-        StaffActor? actor = null;
-        if (row.ActiveAffiliationId is { } affId)
-        {
-            var aff = await db.Affiliations.AsNoTracking().SingleAsync(a => a.Id == affId, ct);
-            if (IsAffiliationActive(aff, now))
-            {
-                var practitioner = await db.Practitioners.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == user.Id && p.TenantId == aff.TenantId, ct);
-                actor = new StaffActor(user.Id, row.Id, aff.Id, aff.TenantId, aff.FacilityId, practitioner?.Id, user.DisplayName, RoleCatalog.CapabilitiesFor(aff.Roles));
-            }
-        }
-
-        return new ValidatedSession(row.Id, row.UserId, row.CsrfToken, actor);
+        var isPlatformAdmin = await IsActivePlatformAdminAsync(user.Id, ct);
+        return await BuildSessionAsync(row.Id, row.CsrfToken, row.ActiveAffiliationId, user, isPlatformAdmin, clock.GetUtcNow(), ct);
     }
 
     private async Task<List<AffiliationDto>> ActiveAffiliationsAsync(Guid userId, DateTimeOffset now, CancellationToken ct)

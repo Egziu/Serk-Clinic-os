@@ -37,6 +37,7 @@ public static class DemoData
     public const string Support = "support.serk";
     public const string Owner = "owner.a";
     public const string ClinicAdminB = "admin.b";
+    public const string SuperAdmin = "super.admin";
 
     internal static readonly (string User, Guid Id, string Name)[] Users =
     [
@@ -52,6 +53,7 @@ public static class DemoData
         (Support, U(10), "SERK Platform Support (synthetic)"),
         (Owner, U(11), "Almaz Bekele (Owner, synthetic)"),
         (ClinicAdminB, U(12), "Tewodros Ayele (Clinic admin B, synthetic)"),
+        (SuperAdmin, U(13), "Saba Kebede (System super admin, synthetic)"),
     ];
 
     public static Guid UserId(string username) => Users.Single(u => u.User == username).Id;
@@ -107,6 +109,9 @@ public static class DemoDataSeeder
         await Affiliation(conn, tx, 11, DemoData.Owner, DemoData.TenantA, DemoData.FacilityABole, ["Owner"], ct);
         await Affiliation(conn, tx, 12, DemoData.ClinicAdminB, DemoData.TenantB, DemoData.FacilityBHawassa, ["ClinicAdmin"], ct);
         // DemoData.Support intentionally has NO affiliation: platform support has no routine PHI access.
+        // The super administrator also has NO affiliation: system-wide control of access, but no patient data by default.
+        await Exec(conn, tx, "INSERT INTO identity.platform_admins (user_id, is_active, granted_at) VALUES (@u, true, @now) ON CONFLICT DO NOTHING",
+            ("u", DemoData.UserId(DemoData.SuperAdmin)), ("now", now));
 
         await Patient(conn, tx, DemoData.PatientSelam, DemoData.TenantA, DemoData.FacilityABole, "MRN-900001", "Selam", "Tesfaye", "Bekele", "Female", new DateOnly(1990, 3, 14), "+251911000001", now, ct);
         await Patient(conn, tx, DemoData.PatientDawit, DemoData.TenantA, DemoData.FacilityABole, "MRN-900002", "Dawit", "Mulugeta", "Assefa", "Male", new DateOnly(1978, 11, 2), "+251911000002", now, ct);

@@ -4,6 +4,9 @@ namespace Serk.Clinic.Identity.Domain;
 public static class SessionPolicy
 {
     public static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(30);
+
+    /// <summary>Shorter idle timeout for super administrators (highest privilege, no MFA yet — IDENT-001).</summary>
+    public static readonly TimeSpan PlatformAdminIdleTimeout = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan AbsoluteLifetime = TimeSpan.FromHours(12);
     public static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(1);
     public const int MaxFailedLogins = 5;

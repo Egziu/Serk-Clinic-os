@@ -15,6 +15,7 @@ public static class IdentityModule
     {
         services.AddDbContext<IdentityDbContext>((sp, o) => o.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()));
         services.AddScoped<AuthService>();
+        services.AddScoped<PlatformAdminService>();
         services.AddScoped<IStaffDirectory, StaffDirectory>();
         services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, _ => { });

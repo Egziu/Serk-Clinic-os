@@ -51,6 +51,13 @@ public static class IdentityEndpoints
             return result.ToHttp(Results.Ok);
         }).RequireAuthorization();
 
+        // Own password change; also the only action available while a forced change is pending.
+        app.MapPost("/api/v1/me/password", async (ChangePasswordRequest body, HttpContext http, AuthService service, CancellationToken ct) =>
+        {
+            var session = (ValidatedSession)http.Items[SessionAuthenticationHandler.SessionItemKey]!;
+            return (await service.ChangeOwnPasswordAsync(session, body, ct)).ToHttp(Results.Ok);
+        }).WithTags("Auth").RequireAuthorization().RequireRateLimiting("login");
+
         auth.MapPost("/logout", async (HttpContext http, AuthService service, CancellationToken ct) =>
         {
             var session = (ValidatedSession)http.Items[SessionAuthenticationHandler.SessionItemKey]!;

@@ -39,4 +39,28 @@ public static class EndpointAuthorization
         });
         return builder;
     }
+
+    /// <summary>
+    /// Gate for platform super-administration endpoints. Requires an authenticated, active platform administrator; tenant
+    /// affiliation is not required and not consulted. Denials are recorded as security events.
+    /// </summary>
+    public static TBuilder RequirePlatformAdmin<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        builder.RequireAuthorization();
+        builder.AddEndpointFilter(async (ctx, next) =>
+        {
+            var services = ctx.HttpContext.RequestServices;
+            var request = services.GetRequiredService<RequestContext>();
+            if (request.PlatformAdminUserId is null)
+            {
+                var audit = services.GetRequiredService<AuditTrail>();
+                await audit.RecordSecurityEventAsync("authorization.denied", "denied:platform.admin", ct: ctx.HttpContext.RequestAborted);
+                return ResultHttp.Problem(Error.Forbidden("platform_admin_required", "Only a system super administrator can do this."));
+            }
+
+            return await next(ctx);
+        });
+        return builder;
+    }
 }
