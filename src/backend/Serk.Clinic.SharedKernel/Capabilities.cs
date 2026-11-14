@@ -27,4 +27,12 @@ public static class Capabilities
     public const string BrandingManage = "branding.manage";
     public const string PrintersManage = "printers.manage";
     public const string AnalyticsRead = "analytics.read";
+    public const string InvoiceWrite = "billing.invoice.write";
+    public const string PaymentCollect = "billing.payment.collect";
+    public const string FinanceRead = "finance.read";
+    public const string FinanceApprove = "finance.approve";
+    public const string FinanceClose = "finance.close";
+    public const string FinanceConfigure = "finance.configure";
+    public const string OwnerReportsRead = "owner.reports.read";
+    public const string OwnerSubscriptionsManage = "owner.subscriptions.manage";
 }

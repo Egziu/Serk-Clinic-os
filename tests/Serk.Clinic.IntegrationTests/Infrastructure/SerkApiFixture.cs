@@ -20,6 +20,8 @@ namespace Serk.Clinic.IntegrationTests.Infrastructure;
 public sealed class SerkApiFixture : IAsyncLifetime
 {
     public const string DemoPassword = "Integration-Synthetic-1!";
+    public const string ProviderSecret = "it-sandbox-provider-secret-0001";
+    public const string ConnectorSecret = "it-sandbox-connector-secret-0001";
     public const string AppLogin = "serk_it_app";
     public const string AppPassword = "it-app-password-synthetic";
 
@@ -69,6 +71,8 @@ public sealed class SerkApiFixture : IAsyncLifetime
             b.UseSetting("ObjectStore:RootPath", ObjectRoot);
             b.UseSetting("RateLimits:LoginPerMinute", "100000");
             b.UseSetting("Documents:PublicBaseUrl", "https://verify.test");
+            b.UseSetting("Finance:Providers:Sandbox:Secret", ProviderSecret);
+            b.UseSetting("Finance:Digest:ConnectorSecret", ConnectorSecret);
             b.ConfigureServices(s => s.AddLogging(l => l.AddProvider(Logs).SetMinimumLevel(LogLevel.Trace)));
         });
         _ = _factory.Server; // start the host now

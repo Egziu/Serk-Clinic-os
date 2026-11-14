@@ -38,6 +38,8 @@ public static class DemoData
     public const string Owner = "owner.a";
     public const string ClinicAdminB = "admin.b";
     public const string SuperAdmin = "super.admin";
+    public const string Cashier = "cashier.a";
+    public const string FinanceSupervisor = "finance.a";
 
     internal static readonly (string User, Guid Id, string Name)[] Users =
     [
@@ -54,6 +56,8 @@ public static class DemoData
         (Owner, U(11), "Almaz Bekele (Owner, synthetic)"),
         (ClinicAdminB, U(12), "Tewodros Ayele (Clinic admin B, synthetic)"),
         (SuperAdmin, U(13), "Saba Kebede (System super admin, synthetic)"),
+        (Cashier, U(14), "Hirut Tesfaye (Cashier, synthetic)"),
+        (FinanceSupervisor, U(15), "Dawit Lemma (Finance supervisor, synthetic)"),
     ];
 
     public static Guid UserId(string username) => Users.Single(u => u.User == username).Id;
@@ -113,6 +117,22 @@ public static class DemoDataSeeder
         await Affiliation(conn, tx, 10, DemoData.ClinicianB, DemoData.TenantB, DemoData.FacilityBHawassa, ["Clinician"], ct);
         await Affiliation(conn, tx, 11, DemoData.Owner, DemoData.TenantA, DemoData.FacilityABole, ["Owner"], ct);
         await Affiliation(conn, tx, 12, DemoData.ClinicAdminB, DemoData.TenantB, DemoData.FacilityBHawassa, ["ClinicAdmin"], ct);
+        await Affiliation(conn, tx, 13, DemoData.Cashier, DemoData.TenantA, DemoData.FacilityABole, ["Cashier"], ct);
+        await Affiliation(conn, tx, 14, DemoData.FinanceSupervisor, DemoData.TenantA, DemoData.FacilityABole, ["FinanceSupervisor"], ct);
+
+        // Illustrative price list (fictional prices in ETB) so billing can be tried immediately.
+        var n = 0;
+        foreach (var (code, name, price) in new (string, string, decimal)[]
+        {
+            ("CONSULT", "Consultation", 500m), ("DENT-EXAM", "Dental examination", 400m), ("DENT-XRAY", "Dental X-ray (periapical)", 350m),
+            ("DENT-SCALE", "Scaling and polishing", 1200m), ("DENT-FILL", "Composite filling (one surface)", 1800m), ("DENT-EXT", "Simple extraction", 1500m),
+            ("DENT-RCT", "Root canal treatment (single canal)", 6500m), ("DENT-CROWN", "Porcelain crown", 12000m),
+        })
+        {
+            await Exec(conn, tx, "INSERT INTO finance.services (id, tenant_id, code, name, unit_price, currency, version, is_current, created_by, created_at) VALUES (@id, @t, @c, @n, @p, 'ETB', 1, true, @u, @now) ON CONFLICT DO NOTHING",
+                ("id", Guid.Parse($"0195f000-0000-7000-8000-{++n:D12}")), ("t", DemoData.TenantA), ("c", code), ("n", name), ("p", price), ("u", DemoData.UserId(DemoData.ClinicAdmin)), ("now", now));
+        }
+
         // DemoData.Support intentionally has NO affiliation: platform support has no routine PHI access.
         // The super administrator also has NO affiliation: system-wide control of access, but no patient data by default.
         if (superAdminPassword is not null)

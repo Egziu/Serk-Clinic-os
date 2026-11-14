@@ -35,7 +35,7 @@ public enum PrintPurpose
 /// <summary>Accent colour chosen by the clinic. Must keep white button text readable (WCAG 2.x contrast ≥ 4.5:1).</summary>
 public static partial class AccentColor
 {
-    public const string Default = "#1e4d3a";
+    public const string Default = "#1257c9";
     public const double MinContrastOnWhite = 4.5;
 
     public static Result<string> Validate(string? hex)

@@ -17,6 +17,8 @@ using Serk.Clinic.Dental.Api;
 using Serk.Clinic.Documents;
 using Serk.Clinic.Documents.Api;
 using Serk.Clinic.Documents.Application;
+using Serk.Clinic.Finance;
+using Serk.Clinic.Finance.Api;
 using Serk.Clinic.Host.Infrastructure;
 using Serk.Clinic.Host.Seeding;
 using Serk.Clinic.Identity;
@@ -91,7 +93,7 @@ public static class SerkHost
         builder.Services.AddSingleton<IObjectStore, FileSystemObjectStore>();
         builder.Services.Configure<DocumentOptions>(config.GetSection("Documents"));
 
-        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule().AddConfigurationModule().AddAnalyticsModule();
+        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule().AddConfigurationModule().AddAnalyticsModule().AddFinanceModule();
         builder.Services.AddOptions<Serk.Clinic.Scheduling.Application.NoShowOptions>().Bind(config.GetSection("Scheduling:NoShow"))
             .Validate(o => o.Grace >= Serk.Clinic.Scheduling.Application.NoShowOptions.MinimumGrace && o.Interval >= TimeSpan.FromSeconds(10), "Scheduling:NoShow:Grace must be at least 30 minutes and Interval at least 10 seconds.")
             .ValidateOnStart();
@@ -260,6 +262,7 @@ public static class SerkHost
         app.MapDentalEndpoints();
         app.MapConfigurationEndpoints();
         app.MapAnalyticsEndpoints();
+        app.MapFinanceEndpoints();
         app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));
         app.MapFallbackToFile("index.html");
     }

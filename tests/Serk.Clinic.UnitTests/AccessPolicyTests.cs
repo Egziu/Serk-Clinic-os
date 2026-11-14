@@ -21,7 +21,7 @@ public class AccessPolicyTests
     public void Built_in_roles_keep_the_safety_baseline()
     {
         // Management roles never carry clinical or patient-identifying capabilities.
-        foreach (var code in new[] { RoleCatalog.ClinicAdmin, RoleCatalog.Owner })
+        foreach (var code in new[] { RoleCatalog.ClinicAdmin, RoleCatalog.Owner, RoleCatalog.FinanceSupervisor })
         {
             var role = RoleCatalog.BuiltIns.Single(r => r.Code == code);
             Assert.DoesNotContain(role.Capabilities, c => CapabilityCatalog.Find(c)!.Sensitivity == CapabilitySensitivity.Clinical);
@@ -29,7 +29,7 @@ public class AccessPolicyTests
         }
 
         Assert.DoesNotContain(Capabilities.AllergyRead, RoleCatalog.BuiltIns.Single(r => r.Code == RoleCatalog.Receptionist).Capabilities);
-        Assert.Equal(7, RoleCatalog.BuiltIns.Count);
+        Assert.Equal(8, RoleCatalog.BuiltIns.Count);
     }
 
     [Fact]

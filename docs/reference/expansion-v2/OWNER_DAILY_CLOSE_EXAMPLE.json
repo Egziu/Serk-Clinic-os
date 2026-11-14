@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "exampleOnly": true,
+  "reportId": "demo-DC-20261110-0042",
+  "facilityName": "Demo Dental Clinic",
+  "businessDateLocal": "2026-11-10",
+  "timezone": "Africa/Addis_Ababa",
+  "currency": "ETB",
+  "closeStatus": "LOCKED",
+  "fullyReconciled": false,
+  "disclosure": "Locked with approved cash variance and identified unsettled provider items",
+  "issuedServiceCharges": "86000.00",
+  "postedServiceRevenue": "79200.00",
+  "verifiedCollections": {
+    "cash": "24000.00",
+    "electronic": "49500.00",
+    "total": "73500.00"
+  },
+  "cashDrawer": {
+    "openingFloat": "3000.00",
+    "verifiedCashReceipts": "24000.00",
+    "cashOutflows": "0.00",
+    "expected": "27000.00",
+    "counted": "26950.00",
+    "variance": "-50.00",
+    "varianceApproved": true
+  },
+  "refundsActuallyPaid": "1500.00",
+  "outstandingAccountsReceivable": "18500.00",
+  "unsettledProviderClearing": "8000.00",
+  "operational": {
+    "completedVisits": 42,
+    "unresolvedServiceRequests": 3
+  },
+  "exceptions": [
+    {"code":"CASH_SHORTAGE","count":1,"amount":"50.00","approved":true},
+    {"code":"PENDING_SETTLEMENT","count":2,"amount":"8000.00","approved":false}
+  ],
+  "sourceSnapshotHash": "PLACEHOLDER_SHA256_FROM_REAL_SNAPSHOT",
+  "approvedAtUtc": "PLACEHOLDER_ACTUAL_TIMESTAMP",
+  "recipientSensitiveDataPolicy": "AGGREGATE_ONLY_NO_PHI",
+  "notes": "Fictional figures. Distinct financial metrics do not necessarily add up. Replace with verified source projections and real signed approvals in a working system."
+}
