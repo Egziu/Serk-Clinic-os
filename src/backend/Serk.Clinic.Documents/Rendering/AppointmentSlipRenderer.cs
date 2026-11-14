@@ -23,7 +23,12 @@ public sealed record AppointmentSlip(
     DateTimeOffset StartsAtUtc,
     string TimeZone,
     string Reference,
-    byte[]? Logo);
+    byte[]? Logo)
+{
+    public string Motto { get; init; } = "";
+
+    public string Address { get; init; } = "";
+}
 
 /// <summary>
 /// Renders appointment slips for receipt-style thermal roll printers (58/80 mm) or standard A5/A4 printers.
@@ -39,7 +44,19 @@ public static class AppointmentSlipRenderer
         _ => (210, 297),
     };
 
+    /// <summary>
+    /// Rendering is serialised process-wide: the PDF library's font and layout caches are shared static state, and parallel
+    /// renders were observed to position glyphs differently (preview and final must be byte-for-byte reproducible).
+    /// </summary>
     public static byte[] Render(AppointmentSlip slip, SlipPaper paper)
+    {
+        lock (RenderLock.Gate)
+        {
+            return RenderCore(slip, paper);
+        }
+    }
+
+    private static byte[] RenderCore(AppointmentSlip slip, SlipPaper paper)
     {
         EmbeddedFontResolver.EnsureInstalled();
         var thermal = paper is SlipPaper.Thermal58 or SlipPaper.Thermal80;
@@ -74,6 +91,16 @@ public static class AppointmentSlipRenderer
         }
 
         Line(section, slip.FacilityName, bold: true, size: thermal ? 10 : 13, center: thermal);
+        if (slip.Motto.Length > 0)
+        {
+            Line(section, slip.Motto, size: thermal ? 7 : 9, center: thermal);
+        }
+
+        if (slip.Address.Length > 0)
+        {
+            Line(section, slip.Address, size: thermal ? 7 : 9, center: thermal);
+        }
+
         if (slip.FacilityPhone.Length > 0)
         {
             Line(section, slip.FacilityPhone, size: thermal ? 7 : 9, center: thermal);

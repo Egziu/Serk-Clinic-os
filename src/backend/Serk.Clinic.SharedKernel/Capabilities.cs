@@ -35,4 +35,7 @@ public static class Capabilities
     public const string FinanceConfigure = "finance.configure";
     public const string OwnerReportsRead = "owner.reports.read";
     public const string OwnerSubscriptionsManage = "owner.subscriptions.manage";
+    public const string DataExport = "data.export";
+    public const string PatientDataExport = "data.export.patient";
+    public const string BackupManage = "backup.manage";
 }

@@ -53,6 +53,18 @@ PDFs and their hashes; audit trail; staff credentials and sessions; tenant bound
 | Stale or temporary credentials | Admin-set password reused | Forced change before any access; reset ends sessions; password policy | ACCESS-003/008 | Temporary password is shown once in the browser; secure hand-over is procedural |
 | Broadened runtime DB grants | Injection writing identity tables | Column-limited INSERT/UPDATE only, no DELETE; all SQL parameterised (EF/Npgsql) | migration 0011 | Identity tables have no RLS (by design, ADR-0003) |
 
+## Owner setup, exports, backups and insights (added 2026-11-14, ADR-0015)
+
+| Threat | Example | Controls implemented | Evidence | Residual / open |
+|---|---|---|---|---|
+| Bulk exfiltration of patient data | Stolen owner session downloads the register | `data.export.patient` + written purpose + password re-confirmation (failures → lockout); per-user rate limit; 366-day/100k-row caps; append-only export log with SHA-256 + audit event | EXPORT-001..003 (step-up mutation-checked) | No MFA (IDENT-001); a legitimate owner can still export what the role allows — policy decision for the clinic |
+| Cross-organisation data in exports/backups | SQL forgets the tenant filter | RLS on module tables; identity tables filtered explicitly; reference views use `security_invoker` or `platform.current_tenant()` | EXPORT-002/003, BACKUP-002 (filter removal mutation-checked) | Platform backup SQL reads tables by name (catalogue) |
+| Silent omission from backups | New table never backed up | Catalogue must include or explicitly exclude every table with `tenant_id` | BACKUP-001 (mutation-checked) | Tables without `tenant_id` are outside this check |
+| Backup disclosure | File copied from the owner's laptop | AES-256-GCM, PBKDF2 600k, authenticated header; no password hashes or session tokens in the archive; server keeps nothing | BACKUP-002, BackupArchiveTests | Passphrase strength depends on the owner; no key escrow |
+| Tampered or substituted backup | Edited file restored later | GCM tag + per-file SHA-256 manifest + organisation check + ledger balance check on verify | BACKUP-002, BackupArchiveTests | In-app restore not implemented |
+| Spreadsheet formula injection | Patient name `=HYPERLINK(...)` opened in Excel | Cells starting with = + - @ TAB CR are prefixed with an apostrophe | TabularWriterTests | — |
+| Insight leaks patient data | Insight text names a patient | Insights read PHI-free fact views only; names only of staff (cash variance) for finance readers | INSIGHT-001, InsightRulesTests | — |
+
 ## Attackers considered
 Internet users (anonymous verify endpoint, login), curious insiders (search, duplicate probe — now audited), rogue tenant
 (tenant B staff), compromised workstation (session revocation), malicious tools/plugins (no PHI to tools; synthetic data

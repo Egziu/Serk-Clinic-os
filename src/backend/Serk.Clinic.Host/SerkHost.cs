@@ -28,6 +28,7 @@ using Serk.Clinic.Patients.Api;
 using Serk.Clinic.Platform.Audit;
 using Serk.Clinic.Platform.Context;
 using Serk.Clinic.Platform.Data;
+using Serk.Clinic.Platform.Export;
 using Serk.Clinic.Platform.Http;
 using Serk.Clinic.Platform.Idempotency;
 using Serk.Clinic.Platform.Migrations;
@@ -65,7 +66,7 @@ public static class SerkHost
         builder.WebHost.ConfigureKestrel(k =>
         {
             k.AddServerHeader = false;
-            k.Limits.MaxRequestBodySize = MaxRequestBodyBytes;
+            k.Limits.MaxRequestBodySize = Serk.Clinic.Platform.Backup.BackupService.MaxUploadBytes; // per request lowered to MaxRequestBodyBytes by RequestSizeLimitMiddleware
         });
         builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = MaxRequestBodyBytes);
 
@@ -86,6 +87,9 @@ public static class SerkHost
         builder.Services.AddScoped<AuditTrail>();
         builder.Services.AddScoped<OutboxWriter>();
         builder.Services.AddScoped<IdempotencyStore>();
+        builder.Services.AddScoped<Serk.Clinic.Platform.Export.ExportService>();
+        builder.Services.AddScoped<Serk.Clinic.Platform.Backup.BackupService>();
+        builder.Services.AddExportDatasets(Serk.Clinic.Platform.Export.PlatformExports.All);
         builder.Services.AddScoped<OutboxProcessor>();
         builder.Services.Configure<OutboxOptions>(config.GetSection("Outbox"));
         builder.Services.AddHostedService<OutboxBackgroundService>();
@@ -113,6 +117,10 @@ public static class SerkHost
             o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = config.GetValue("RateLimits:LoginPerMinute", 10), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            // Exports and backups: per signed-in user (falls back to client address), configurable.
+            o.AddPolicy("data-heavy", ctx => RateLimitPartition.GetFixedWindowLimiter(
+                DataHeavyPartition(ctx),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = config.GetValue("RateLimits:ExportsPerMinute", 20), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             o.AddPolicy("verify", ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -263,7 +271,18 @@ public static class SerkHost
         app.MapConfigurationEndpoints();
         app.MapAnalyticsEndpoints();
         app.MapFinanceEndpoints();
+        app.MapExportEndpoints();
+        Serk.Clinic.Platform.Backup.BackupEndpoints.MapBackupEndpoints(app);
         app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));
         app.MapFallbackToFile("index.html");
     }
+
+    /// <summary>
+    /// Rate-limit partition for exports and backups. The limiter runs before authentication, so the key is a hash of the
+    /// session cookie (one bucket per signed-in session, not per shared clinic IP); requests without a session use the IP.
+    /// </summary>
+    internal static string DataHeavyPartition(HttpContext ctx) =>
+        ctx.Request.Cookies.TryGetValue(Serk.Clinic.Identity.Domain.SessionPolicy.CookieName, out var cookie) && !string.IsNullOrEmpty(cookie)
+            ? "s:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(cookie)))[..32]
+            : "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 }

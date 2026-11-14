@@ -31,6 +31,23 @@ public static class ConfigurationEndpoints
             }))
             .RequireCapability(Capabilities.BrandingManage);
 
+        // Clinic profile (letterhead): readable by every member (shown on receipts and slips), editable by managers.
+        g.MapGet("/profile", async (ClinicProfileService service, HttpResponse response, CancellationToken ct) =>
+            (await service.GetAsync(ct)).ToHttp(p =>
+            {
+                response.Headers.ETag = ResultHttp.ETag(p.Version);
+                return Results.Ok(p);
+            }))
+            .RequireCapability();
+
+        g.MapPut("/profile", async (UpdateClinicProfileRequest body, HttpRequest http, HttpResponse response, ClinicProfileService service, CancellationToken ct) =>
+            (await service.UpdateAsync(body, ResultHttp.ParseIfMatchVersion(http), ct)).ToHttp(p =>
+            {
+                response.Headers.ETag = ResultHttp.ETag(p.Version);
+                return Results.Ok(p);
+            }))
+            .RequireCapability(Capabilities.BrandingManage);
+
         g.MapPost("/branding/{kind}", async (string kind, IFormFile? file, ConfigurationService service, CancellationToken ct) =>
         {
             if (!Enum.TryParse<BrandingAssetKind>(kind, ignoreCase: true, out var k) || k == BrandingAssetKind.Signature)

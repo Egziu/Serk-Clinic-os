@@ -107,7 +107,8 @@ public sealed class DocumentService(
             }
         }
 
-        var brandingBlock = new BrandingBlock(facilityBranding.AccentColor, facilityBranding.Logo, facilityBranding.Stamp, signatures);
+        var lh = await branding.GetLetterheadAsync(last.FacilityId, ct);
+        var brandingBlock = new BrandingBlock(facilityBranding.AccentColor, facilityBranding.Logo, facilityBranding.Stamp, signatures, Letterhead.From(lh));
         var signedDate = DateOnly.FromDateTime(chain[0].Snapshot.SignedAtUtc.UtcDateTime);
         var snapshot = new ConsultationDocumentSnapshotV1(
             1,
@@ -359,9 +360,17 @@ public sealed class DocumentService(
 
         var facilityBranding = await branding.GetFacilityBrandingAsync(appt.FacilityId, ct);
         var logo = facilityBranding.Logo is { } l ? await branding.ReadAssetAsync(l, ct) : null;
+        var lhSlip = await branding.GetLetterheadAsync(appt.FacilityId, ct);
         var reference = appointmentId.ToString("N")[^8..].ToUpperInvariant();
         var bytes = AppointmentSlipRenderer.Render(
-            new AppointmentSlip(facility.Name, facility.Phone, patient.DisplayName, patient.Mrn, practitioner.DisplayName, appt.StartsAt, facility.TimeZone, reference, logo),
+            new AppointmentSlip(
+                lhSlip.DisplayName.Length > 0 ? lhSlip.DisplayName : facility.Name,
+                lhSlip.Phone.Length > 0 ? lhSlip.Phone : facility.Phone,
+                patient.DisplayName, patient.Mrn, practitioner.DisplayName, appt.StartsAt, facility.TimeZone, reference, logo)
+            {
+                Motto = lhSlip.Motto,
+                Address = Letterhead.Address(lhSlip),
+            },
             paper);
         await audit.RecordAsync(new AuditEntry("appointment.slip.render", "appointment", appointmentId, appt.PatientId, Metadata: new Dictionary<string, string> { ["paper"] = paper.ToString() }), ct);
         await session.CommitAsync(ct);
@@ -418,4 +427,23 @@ public sealed class DocumentService(
 
     private static DocumentDto ToDto(DocumentVersion d) =>
         new(d.Id, d.EncounterId, d.NoteVersionId, d.TemplateCode, d.TemplateVersion, d.PaperSize.ToString(), d.Status.ToString(), d.SnapshotSha256, d.VerificationRef, d.CreatedAt, d.FinalizedAt, d.PdfSha256, d.SupersedesId, d.CreatedBy);
+}
+
+/// <summary>Turns the current clinic profile into the frozen letterhead block (null when no profile is set up).</summary>
+internal static class Letterhead
+{
+    public static LetterheadBlock? From(ClinicLetterhead p)
+    {
+        if (!p.IsSet)
+        {
+            return null;
+        }
+
+        var contacts = string.Join(" | ", new[] { p.Phone.Length > 0 ? "Tel " + p.Phone : "", p.Email, p.Website }.Where(x => x.Length > 0));
+        var registration = string.Join(" | ", new[] { p.LicenceNo.Length > 0 ? "Licence " + p.LicenceNo : "", p.TaxId.Length > 0 ? "TIN " + p.TaxId : "" }.Where(x => x.Length > 0));
+        return new LetterheadBlock(p.DisplayName, p.Motto, Address(p), contacts, registration, p.DocumentFooter);
+    }
+
+    public static string Address(ClinicLetterhead p) =>
+        string.Join(", ", new[] { p.AddressLine1, p.AddressLine2, p.City, p.Region }.Where(x => x.Length > 0));
 }

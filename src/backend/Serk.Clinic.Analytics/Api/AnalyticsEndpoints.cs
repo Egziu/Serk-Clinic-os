@@ -29,5 +29,9 @@ public static class AnalyticsEndpoints
                 return Results.Text(csv, "text/csv; charset=utf-8");
             }))
             .RequireCapability(Capabilities.AnalyticsRead);
+
+        // Explainable, rule-based observations for the caller's permissions (no patient data).
+        app.MapGet("/api/v1/insights", async (InsightsService service, CancellationToken ct) => Results.Ok(await service.GetAsync(ct)))
+            .WithTags("Insights").RequireCapability();
     }
 }

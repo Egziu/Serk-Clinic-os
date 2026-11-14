@@ -290,6 +290,13 @@ public sealed class ConfigurationService(DbSession session, RequestContext conte
         return new FacilityBranding(row?.AccentColor ?? AccentColor.Default, Ref(BrandingAssetKind.Logo), Ref(BrandingAssetKind.Stamp), row?.DefaultClinicalPaper ?? "A4", row?.AutoPrepareDocuments ?? true);
     }
 
+    public async Task<ClinicLetterhead> GetLetterheadAsync(Guid facilityId, CancellationToken ct)
+    {
+        var tenant = context.EffectiveTenantId ?? throw new InvalidOperationException("Tenant context required.");
+        var db = await session.ContextAsync<ConfigurationDbContext>(ct);
+        return await ClinicProfileService.LetterheadAsync(db, tenant, facilityId, ct);
+    }
+
     public async Task<AssetRef?> GetSignatureInEffectAsync(Guid practitionerId, DateTimeOffset signedAtUtc, CancellationToken ct)
     {
         var tenant = context.EffectiveTenantId ?? throw new InvalidOperationException("Tenant context required.");

@@ -86,9 +86,10 @@ export const api = {
 };
 
 /** Multipart upload of a single file in the "file" field (CSRF header included). */
-export async function uploadFile<T>(url: string, file: File): Promise<T> {
+export async function uploadFile<T>(url: string, file: File, fields: Record<string, string> = {}): Promise<T> {
   const form = new FormData();
   form.append("file", file);
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
   const headers: Record<string, string> = { Accept: "application/json" };
   if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   const res = await fetch(url, { method: "POST", body: form, headers, credentials: "same-origin" });
@@ -107,4 +108,37 @@ export async function fetchPdfUrl(url: string): Promise<{ url: string; snapshotS
   }
   const blob = await res.blob();
   return { url: URL.createObjectURL(blob), snapshotSha256: res.headers.get("X-Snapshot-Sha256") };
+}
+
+export interface DownloadedFile { blob: Blob; fileName: string; sha256: string | null; rows: string | null }
+
+/** POSTs JSON and receives a file (exports, backups). Errors arrive as RFC 9457 JSON and become ApiError. */
+export async function postForFile(url: string, body: unknown): Promise<DownloadedFile> {
+  const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "*/*" };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  const res = await fetch(url, { method: "POST", headers, credentials: "same-origin", body: JSON.stringify(body) });
+  if (!res.ok) {
+    const text = await res.text();
+    throw toError(res.status, text ? safeParse(text) : null);
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  return {
+    blob: await res.blob(),
+    fileName: match ? decodeURIComponent(match[1]!) : "download",
+    sha256: res.headers.get("X-Serk-Export-Sha256") ?? res.headers.get("X-Serk-Backup-Sha256"),
+    rows: res.headers.get("X-Serk-Export-Rows") ?? res.headers.get("X-Serk-Backup-Rows"),
+  };
+}
+
+/** Hands a downloaded file to the browser's save dialog. */
+export function saveFile(file: DownloadedFile): void {
+  const url = URL.createObjectURL(file.blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

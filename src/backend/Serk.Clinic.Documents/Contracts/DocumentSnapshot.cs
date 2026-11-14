@@ -30,4 +30,15 @@ public sealed record ConsultationDocumentSnapshotV1(
 /// Branding frozen into a document snapshot (template v3+): accent colour and immutable image references by id + SHA-256.
 /// Omitted from JSON when null so snapshots created before v3 keep their original canonical hash.
 /// </summary>
-public sealed record BrandingBlock(string AccentColor, AssetRef? Logo, AssetRef? Stamp, IReadOnlyDictionary<string, AssetRef> SignaturesByPractitioner);
+public sealed record BrandingBlock(
+    string AccentColor,
+    AssetRef? Logo,
+    AssetRef? Stamp,
+    IReadOnlyDictionary<string, AssetRef> SignaturesByPractitioner,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LetterheadBlock? Letterhead = null);
+
+/// <summary>
+/// Clinic profile frozen at preparation time (absent in snapshots made before the clinic profile existed, so their
+/// canonical hash and rendering are unchanged). Final PDFs therefore always show the letterhead the preview showed.
+/// </summary>
+public sealed record LetterheadBlock(string DisplayName, string Motto, string AddressLine, string Contacts, string Registration, string Footer);

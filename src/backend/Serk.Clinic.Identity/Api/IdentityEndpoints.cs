@@ -72,6 +72,12 @@ public static class IdentityEndpoints
             return result.ToHttp(count => Results.Ok(new { revoked = count }));
         }).WithTags("Administration").RequireCapability(Capabilities.StaffAdmin);
 
+        // Who does what in this organisation: roles, responsibilities and permissions (transparent to every member).
+        app.MapGet("/api/v1/organisation/roles", async (OrganisationService service, CancellationToken ct) => Results.Ok(await service.MatrixAsync(ct)))
+            .WithTags("Organisation").RequireCapability();
+        app.MapGet("/api/v1/organisation/team", async (OrganisationService service, CancellationToken ct) => Results.Ok(await service.TeamAsync(ct)))
+            .WithTags("Organisation").RequireCapability(Capabilities.StaffAdmin);
+
         app.MapGet("/api/v1/practitioners", async (IStaffDirectory directory, RequestContext context, CancellationToken ct) =>
         {
             var actor = context.RequireActor();

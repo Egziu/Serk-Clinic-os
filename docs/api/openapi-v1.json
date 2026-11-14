@@ -55,6 +55,30 @@
         }
       }
     },
+    "/api/v1/organisation/roles": {
+      "get": {
+        "tags": [
+          "Organisation"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/organisation/team": {
+      "get": {
+        "tags": [
+          "Organisation"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/practitioners": {
       "get": {
         "tags": [
@@ -171,6 +195,18 @@
               "format": "uuid"
             }
           }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/insights": {
+      "get": {
+        "tags": [
+          "Insights"
         ],
         "responses": {
           "200": {
@@ -1563,6 +1599,38 @@
         }
       }
     },
+    "/api/v1/facility/profile": {
+      "get": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Facility configuration"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClinicProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/facility/branding/{kind}": {
       "post": {
         "tags": [
@@ -2556,6 +2624,120 @@
           }
         }
       }
+    },
+    "/api/v1/exports": {
+      "get": {
+        "tags": [
+          "Data exports"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exports/history": {
+      "get": {
+        "tags": [
+          "Data exports"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exports/{code}": {
+      "post": {
+        "tags": [
+          "Data exports"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/backups": {
+      "get": {
+        "tags": [
+          "Backups"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Backups"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/backups/verify": {
+      "post": {
+        "tags": [
+          "Backups"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2855,6 +3037,28 @@
         },
         "additionalProperties": false
       },
+      "CreateBackupRequest": {
+        "required": [
+          "passphrase",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "passphrase": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateDocumentRequest": {
         "required": [
           "noteVersionId",
@@ -3054,6 +3258,51 @@
               "string"
             ],
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExportRequest": {
+        "required": [
+          "format",
+          "from",
+          "to",
+          "purpose",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "purpose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
         "additionalProperties": false
@@ -3826,6 +4075,168 @@
           "Lingual"
         ]
       },
+      "UpdateClinicProfileRequest": {
+        "required": [
+          "displayName",
+          "legalName",
+          "motto",
+          "addressLine1",
+          "addressLine2",
+          "city",
+          "region",
+          "country",
+          "postalCode",
+          "phone",
+          "altPhone",
+          "email",
+          "website",
+          "taxId",
+          "registrationNo",
+          "licenceNo",
+          "openingHours",
+          "receiptFooter",
+          "documentFooter",
+          "defaultLanguage",
+          "calendarDisplay",
+          "currency"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "legalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "motto": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "addressLine1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "addressLine2": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "country": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "altPhone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "website": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "registrationNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "licenceNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openingHours": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiptFooter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentFooter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaultLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "calendarDisplay": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currency": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateRoleRequest": {
         "required": [
           "name",
@@ -3929,6 +4340,9 @@
       "name": "Administration"
     },
     {
+      "name": "Organisation"
+    },
+    {
       "name": "Directory"
     },
     {
@@ -3939,6 +4353,9 @@
     },
     {
       "name": "Facility configuration"
+    },
+    {
+      "name": "Insights"
     },
     {
       "name": "System administration"
@@ -3969,6 +4386,12 @@
     },
     {
       "name": "Owner reports"
+    },
+    {
+      "name": "Data exports"
+    },
+    {
+      "name": "Backups"
     }
   ]
 }

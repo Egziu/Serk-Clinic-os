@@ -87,3 +87,15 @@ FIN-009,Finance,Provider settlement clears to bank less fees and the day reconci
 FIN-010,Finance,Accountant approval of chart/posting rules/receipt and tax handling,Yes,Human sign-off,NOT RUN (no accountant review),
 FIN-011,Finance,Supplemental close versions after lock; configurable cutoff and cross-midnight shifts,Yes,Integration,NOT IMPLEMENTED,ADR-0014
 FIN-012,Finance,Real Telegram/email digest connector with recipient MFA,Yes,Integration + security review,NOT IMPLEMENTED (sandbox channel only; owner approval required),ADR-0014
+PROFILE-001,Configuration,Owner edits the clinic profile with optimistic concurrency; invalid contacts refused; others read-only; audited,Yes,Integration + E2E,PASS (automated),OwnerToolsTests PROFILE-001; e2e/owner-setup.spec.ts
+PROFILE-002,Documents,Prepared documents freeze the letterhead; later profile changes do not alter them,Yes,Integration,PASS (automated),OwnerToolsTests PROFILE-002
+ROLES-001,Identity,Every member sees roles/responsibilities; only staff administrators see the team; no secrets in responses,Yes,Integration + E2E,PASS (automated),OwnerToolsTests ROLES-001
+EXPORT-001,Platform,Export catalogue lists only permitted datasets; others refused and recorded as security events,Yes,Integration,PASS (automated),OwnerToolsTests EXPORT-001
+EXPORT-002,Platform,Exports are fingerprinted and logged in the same transaction as the audit event; export log append-only,Yes,Integration + E2E,PASS (automated),OwnerToolsTests EXPORT-002
+EXPORT-003,Platform,Patient-data export needs purpose and password; stays within the organisation,Yes,Integration,PASS (automated; mutation-checked),OwnerToolsTests EXPORT-003
+BACKUP-001,Platform,Every organisation table is backed up or excluded with a reason,Yes,Integration,PASS (automated; mutation-checked),OwnerToolsTests BACKUP-001
+BACKUP-002,Platform,Encrypted backup: step-up; own organisation only; no secrets; verify detects tampering and wrong passphrase,Yes,Integration + E2E,PASS (automated; mutation-checked),OwnerToolsTests BACKUP-002
+BACKUP-003,Operations,Whole-database dump restores into a fresh database with identical counts; ledger balanced; protections intact,Yes,Rehearsal script,PASS (local rehearsal),tools/backup-rehearsal.sh; docs/evidence/backups/
+BACKUP-004,Operations,Restore an organisation backup into a fresh environment,Yes,Rehearsal,NOT IMPLEMENTED (OPS-003b),docs/operations/BACKUP_RESTORE.md
+BACKUP-005,Operations,Continuous production backups (PITR) and off-site copies,Yes,Operations evidence,NOT IMPLEMENTED,docs/operations/BACKUP_RESTORE.md
+INSIGHT-001,Analytics,Insights explain their rule and are limited to the caller's permissions,No,Unit + Integration,PASS (automated),InsightRulesTests; OwnerToolsTests INSIGHT-001

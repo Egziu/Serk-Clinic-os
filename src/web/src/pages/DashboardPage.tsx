@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api/client";
 import { BarList, formatNum, Heatmap, LineChart } from "../components/charts";
 import { ErrorAlert } from "../components/common";
+import { InsightsPanel } from "../components/InsightsPanel";
 import { Icon } from "../components/icons";
 import { localIsoDate } from "../lib/format";
 
@@ -52,7 +53,7 @@ function ChartPanel({ title, description, legend, chart, table }: { title: strin
   );
 }
 
-export function DashboardPage() {
+export function DashboardPage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const today = localIsoDate(new Date());
   const [range, setRange] = useState({ from: shift(today, -29), to: today });
   const [data, setData] = useState<Overview | null>(null);
@@ -85,6 +86,7 @@ export function DashboardPage() {
           <a className="btn" href={`/api/v1/analytics/daily.csv?from=${range.from}&to=${range.to}`}><Icon name="download" /> CSV</a>
         </div>
       </div>
+      <InsightsPanel onNavigate={onNavigate} />
       <ErrorAlert error={error} />
       {data && (
         <>

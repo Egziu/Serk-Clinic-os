@@ -16,7 +16,11 @@ public static class IdentityModule
         services.AddDbContext<IdentityDbContext>((sp, o) => o.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()));
         services.AddScoped<AuthService>();
         services.AddScoped<PlatformAdminService>();
+        services.AddScoped<OrganisationService>();
         services.AddScoped<IStaffDirectory, StaffDirectory>();
+        services.AddScoped<Serk.Clinic.Platform.Export.IStepUpVerifier, StepUpVerifier>();
+        services.AddScoped<Serk.Clinic.Platform.Export.IFacilityTimeZones, FacilityTimeZones>();
+        Serk.Clinic.Platform.Export.ExportRegistration.AddExportDatasets(services, IdentityExports.StaffAccess);
         services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, _ => { });
         services.AddAuthorization();

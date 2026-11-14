@@ -48,6 +48,17 @@ Finance (2026-11-14, ADR-0014): Care+ Finance pack v2.0 first slice — price li
   docs/progress/FINANCE_PACK_STATUS.md. Accountant review NOT RUN — default chart is illustrative; no tax handling.
   Known issue: APPT-002 failed intermittently twice (HTTP 500), not reproduced in 27 later runs, cause unknown.
   UI theme changed to bright blue/white with a dental line-icon backdrop.
+Owner tools (2026-11-14, ADR-0015): clinic profile (name, motto, address, contacts, licence/TIN, hours, footers,
+  language, calendar, currency) frozen into document letterheads; setup checklist; Owner role v4 = full non-clinical
+  administration + exports + encrypted backups; roles & responsibilities matrix and team view; 15 audited export datasets
+  (CSV/JSON; patient data needs purpose + password); encrypted organisation backup with verification; operator restore
+  rehearsal; rule-based explainable insights; grouped navigation and Ctrl/⌘+K command palette.
+  tools/verify.sh PASS: 174 unit + 24 architecture + 121 integration, 0 failed; Vitest 21; Playwright 19/19
+  (docs/evidence/owner-tools/verify-20261114T182342Z.log, e2e-20261114T182342Z.log). Restore rehearsal PASS (docs/evidence/backups/).
+  Mutation checks: backup coverage, backup tenant filter, export step-up — all detected. Review round 4: 1 High accepted
+  with controls (owner backups contain clinical records — owner/legal decision advised), 6 Medium (5 fixed, 1 accepted),
+  5 Low fixed (docs/reviews/2026-11-14-review-round-4-owner-tools.md). PDF rendering made thread-safe (fixes a pre-existing
+  intermittent preview/final difference). In-app restore and production backups NOT IMPLEMENTED.
 Known blockers / risks (ranked):
   0. Super-admin two-person rule not implemented (ACCESS-014, review round 3 F1)
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed

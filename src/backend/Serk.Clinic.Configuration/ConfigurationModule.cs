@@ -9,6 +9,7 @@ public static class ConfigurationModule
     public static IServiceCollection AddConfigurationModule(this IServiceCollection services)
     {
         services.AddScoped<ConfigurationService>();
+        services.AddScoped<ClinicProfileService>();
         services.AddScoped<IBrandingReader>(sp => sp.GetRequiredService<ConfigurationService>());
         return services;
     }

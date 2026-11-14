@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Serk.Clinic.Platform.Export;
 using Serk.Clinic.Scheduling.Application;
 
 namespace Serk.Clinic.Scheduling;
@@ -11,6 +12,7 @@ public static class SchedulingModule
         services.AddScoped<Contracts.IAppointmentReader>(sp => sp.GetRequiredService<AppointmentService>());
         services.AddSingleton<NoShowSweeper>();
         services.AddHostedService<NoShowBackgroundService>();
+        services.AddExportDatasets(SchedulingExports.Appointments, SchedulingExports.DailyVolume);
         return services;
     }
 }

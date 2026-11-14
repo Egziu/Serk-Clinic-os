@@ -40,7 +40,19 @@ public static class ConsultationSummaryRenderer
     public const string SignaturePlaceholder = "[Signature image and stamp are applied only to the issued document]";
 
     /// <param name="assets">Resolves frozen branding images (already hash-verified). Null renders without images.</param>
+    /// <summary>
+    /// Rendering is serialised process-wide: the PDF library's font and layout caches are shared static state, and parallel
+    /// renders were observed to position glyphs differently (preview and final must be byte-for-byte reproducible).
+    /// </summary>
     public static byte[] Render(ConsultationDocumentSnapshotV1 s, RenderMode mode, Func<AssetRef, byte[]>? assets = null)
+    {
+        lock (RenderLock.Gate)
+        {
+            return RenderCore(s, mode, assets);
+        }
+    }
+
+    private static byte[] RenderCore(ConsultationDocumentSnapshotV1 s, RenderMode mode, Func<AssetRef, byte[]>? assets)
     {
         EmbeddedFontResolver.EnsureInstalled();
         var accent = ParseColor(s.Branding?.AccentColor) ?? Forest;
@@ -84,9 +96,31 @@ public static class ConsultationSummaryRenderer
         }
 
         var header = section.Headers.Primary.AddParagraph();
-        Append(header, s.Facility.Name, bold: true, size: 12, color: accent);
-        var headerLine = section.Headers.Primary.AddParagraph();
-        Append(headerLine, Join(" | ", s.Facility.AddressLine, s.Facility.Phone, s.Facility.LicenseNumber.Length > 0 ? "Facility license " + s.Facility.LicenseNumber : ""), size: 8, color: Muted);
+        var letterhead = s.Branding?.Letterhead;
+        Append(header, letterhead is { DisplayName.Length: > 0 } ? letterhead.DisplayName : s.Facility.Name, bold: true, size: 12, color: accent);
+        Paragraph headerLine;
+        if (letterhead is null)
+        {
+            headerLine = section.Headers.Primary.AddParagraph();
+            Append(headerLine, Join(" | ", s.Facility.AddressLine, s.Facility.Phone, s.Facility.LicenseNumber.Length > 0 ? "Facility license " + s.Facility.LicenseNumber : ""), size: 8, color: Muted);
+        }
+        else
+        {
+            if (letterhead.Motto.Length > 0)
+            {
+                var motto = section.Headers.Primary.AddParagraph();
+                motto.AddFormattedText(letterhead.Motto, new Font { Italic = true, Size = 8, Color = accent });
+            }
+
+            headerLine = section.Headers.Primary.AddParagraph();
+            Append(headerLine, Join(" | ", letterhead.AddressLine.Length > 0 ? letterhead.AddressLine : s.Facility.AddressLine, letterhead.Contacts), size: 8, color: Muted);
+            if (letterhead.Registration.Length > 0)
+            {
+                headerLine = section.Headers.Primary.AddParagraph();
+                Append(headerLine, letterhead.Registration, size: 7.5, color: Muted);
+            }
+        }
+
         headerLine.Format.Borders.Bottom.Color = Rule;
         headerLine.Format.Borders.Bottom.Width = Unit.FromPoint(0.5);
 
@@ -98,6 +132,13 @@ public static class ConsultationSummaryRenderer
         footer.AddPageField();
         footer.AddText(" of ");
         footer.AddNumPagesField();
+        if (s.Branding?.Letterhead is { Footer.Length: > 0 } lh)
+        {
+            var clinicFooter = section.Footers.Primary.AddParagraph();
+            clinicFooter.Format.Font.Size = 7;
+            clinicFooter.Format.Font.Color = Muted;
+            clinicFooter.AddText(lh.Footer);
+        }
 
         var title = section.AddParagraph();
         Append(title, "Consultation Summary", bold: true, size: wide ? 18 : 15, color: accent);

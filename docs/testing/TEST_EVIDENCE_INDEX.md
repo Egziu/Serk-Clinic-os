@@ -25,3 +25,9 @@ CI workflow `.github/workflows/ci.yml` observed passing on GitHub (run #2).
 | 2026-11-14 | finance commits | tools/verify.sh incl. FinanceTests (FIN-A..E, CLOSE, LEDGER, REFUND, SETTLE) | 142 unit + 24 architecture + 112 integration passed, 0 failed; format/licence PASS | `docs/evidence/finance/verify-20261114T171809Z.log` |
 | 2026-11-14 | same | Playwright E2E incl. finance.spec.ts (bill and pay, day close and owner report, sandbox payment) | 15/15 passed; axe 0 serious/critical | `docs/evidence/finance/e2e-20261114T171809Z.log`, screenshots 10-12 |
 | 2026-11-14 | same | APPT-002 intermittent failure investigation | 2 failures (HTTP 500) then 27 consecutive passes; cause NOT FOUND | `docs/progress/FINANCE_PACK_STATUS.md` |
+| 2026-11-14 | owner tools commit | tools/verify.sh incl. OwnerToolsTests (PROFILE, ROLES, EXPORT, BACKUP, INSIGHT) | 174 unit + 24 architecture + 121 integration passed, 0 failed | `docs/evidence/owner-tools/verify-20261114T182342Z.log` |
+| 2026-11-14 | same | Playwright E2E incl. owner-setup.spec.ts (Ctrl+K, clinic profile, roles matrix, export, encrypted backup + verify, receptionist limits) | 19/19 passed; axe 0 serious/critical | `docs/evidence/owner-tools/e2e-20261114T182342Z.log`, screenshots 13-15 |
+| 2026-11-14 | same | Mutation checks: table dropped from backup catalogue; tenant filter removed from a backup query; step-up skipped for patient export | each mutant failed its test (BACKUP-001, BACKUP-002, EXPORT-003); restored code passes | session log |
+| 2026-11-14 | same | Whole-database restore rehearsal (tools/backup-rehearsal.sh) | identical row counts (42 tables), migrations, balanced ledger, triggers and RLS preserved, audit immutable | `docs/evidence/backups/` |
+| 2026-11-14 | same | Rendering determinism under parallel load | before: 3/30 runs failed on previous commit; after serialising rendering: 0/40 | session log |
+

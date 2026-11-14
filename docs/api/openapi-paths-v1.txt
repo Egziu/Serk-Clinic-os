@@ -9,6 +9,8 @@
 /api/v1/auth/logout
 /api/v1/auth/session
 /api/v1/auth/session/affiliation
+/api/v1/backups
+/api/v1/backups/verify
 /api/v1/billing/invoices
 /api/v1/billing/invoices/{id}
 /api/v1/billing/invoices/{id}/approve-discount
@@ -34,9 +36,13 @@
 /api/v1/encounters/{id}/addenda
 /api/v1/encounters/{id}/note-draft
 /api/v1/encounters/{id}/sign
+/api/v1/exports
+/api/v1/exports/history
+/api/v1/exports/{code}
 /api/v1/facility/branding/{kind}
 /api/v1/facility/printers
 /api/v1/facility/printers/{id}/deactivate
+/api/v1/facility/profile
 /api/v1/facility/settings
 /api/v1/finance/approvals
 /api/v1/finance/daily-closes
@@ -50,8 +56,11 @@
 /api/v1/finance/refunds/{id}/approve
 /api/v1/finance/refunds/{id}/reject
 /api/v1/finance/trial-balance
+/api/v1/insights
 /api/v1/me/password
 /api/v1/me/signature
+/api/v1/organisation/roles
+/api/v1/organisation/team
 /api/v1/owner/deliveries
 /api/v1/owner/deliveries/{id}/retry
 /api/v1/owner/reports/daily

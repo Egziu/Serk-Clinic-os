@@ -24,12 +24,39 @@ public class AccessPolicyTests
         foreach (var code in new[] { RoleCatalog.ClinicAdmin, RoleCatalog.Owner, RoleCatalog.FinanceSupervisor })
         {
             var role = RoleCatalog.BuiltIns.Single(r => r.Code == code);
-            Assert.DoesNotContain(role.Capabilities, c => CapabilityCatalog.Find(c)!.Sensitivity == CapabilitySensitivity.Clinical);
+            Assert.DoesNotContain(role.Capabilities, c => CapabilityCatalog.Find(c)!.Sensitivity == CapabilitySensitivity.Clinical && c != Capabilities.BackupManage);
             Assert.DoesNotContain(Capabilities.PatientReadDemographics, role.Capabilities);
         }
 
         Assert.DoesNotContain(Capabilities.AllergyRead, RoleCatalog.BuiltIns.Single(r => r.Code == RoleCatalog.Receptionist).Capabilities);
         Assert.Equal(8, RoleCatalog.BuiltIns.Count);
+    }
+
+    [Fact]
+    public void Owner_has_every_non_clinical_management_capability_but_no_clinical_one()
+    {
+        var owner = RoleCatalog.CapabilitiesFor([RoleCatalog.Owner]);
+        foreach (var c in new[]
+        {
+            Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.StaffAdmin, Capabilities.AuditRead, Capabilities.AnalyticsRead,
+            Capabilities.FinanceRead, Capabilities.FinanceApprove, Capabilities.FinanceClose, Capabilities.FinanceConfigure,
+            Capabilities.OwnerReportsRead, Capabilities.OwnerSubscriptionsManage, Capabilities.DataExport, Capabilities.PatientDataExport, Capabilities.BackupManage,
+        })
+        {
+            Assert.Contains(c, owner);
+        }
+
+        // The only Clinical-sensitivity capability an owner holds is the (purpose + password + logged) encrypted backup.
+        Assert.Equal([Capabilities.BackupManage], owner.Where(c => CapabilityCatalog.Find(c)!.Sensitivity == CapabilitySensitivity.Clinical));
+        // Cash handling stays with cashiers (separation of duties: the person approving variances does not hold the drawer).
+        Assert.DoesNotContain(Capabilities.PaymentCollect, owner);
+    }
+
+    [Fact]
+    public void Every_built_in_role_states_its_responsibilities()
+    {
+        Assert.All(RoleCatalog.BuiltIns, r => Assert.NotEmpty(RoleCatalog.ResponsibilitiesFor(r.Code)));
+        Assert.Empty(RoleCatalog.ResponsibilitiesFor("custom.unknown"));
     }
 
     [Fact]

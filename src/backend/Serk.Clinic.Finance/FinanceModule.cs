@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Serk.Clinic.Finance.Application;
+using Serk.Clinic.Platform.Export;
 using Serk.Clinic.Platform.Outbox;
 
 namespace Serk.Clinic.Finance;
@@ -18,6 +19,7 @@ public static class FinanceModule
         services.AddSingleton<SandboxDigestChannel>();
         services.AddSingleton<IOwnerDigestChannel>(sp => sp.GetRequiredService<SandboxDigestChannel>());
         services.AddScoped<IOutboxHandler, DailyCloseLockedHandler>();
+        services.AddExportDatasets(FinanceExports.All);
         return services;
     }
 }

@@ -1,0 +1,9 @@
+rehearsal: dumping serk_e2e
+rehearsal: dump 222715 bytes sha256=895215db473f34756d7d12f19afa81e5abdc268c4f2e42c9a2905a00f7a1c0d0
+rehearsal: restored into serk_restore_rehearsal_20261114180004
+PASS row counts identical for 45 tables
+PASS applied migrations and checksums identical
+PASS ledger balanced per entry (debits / credits: 0 / 0)
+PASS 23 protection triggers and 33 row-level-security tables preserved
+PASS audit trail still rejects changes in the restored copy
+rehearsal: ALL CHECKS PASSED (dump kept at artifacts/backups/serk_e2e-20261114T180004Z.dump)

@@ -46,7 +46,7 @@ public static class CapabilityCatalog
         new(Capabilities.DocumentCreate, "Documents", "Prepare documents", "Prepare draft consultation summaries.", CapabilitySensitivity.Clinical),
         new(Capabilities.DocumentFinalize, "Documents", "Issue documents", "Finalize documents (immutable, verifiable).", CapabilitySensitivity.Clinical),
         new(Capabilities.AnalyticsRead, "Management", "View analytics", "Aggregated, de-identified clinic statistics and CSV export.", CapabilitySensitivity.PatientData),
-        new(Capabilities.BrandingManage, "Management", "Manage branding", "Accent colour, logo, stamp, document defaults and automation.", CapabilitySensitivity.Standard),
+        new(Capabilities.BrandingManage, "Management", "Manage clinic profile and branding", "Clinic name, motto, address, contacts, registration numbers, logo, stamp, colour, document defaults and automation.", CapabilitySensitivity.Standard),
         new(Capabilities.PrintersManage, "Management", "Manage printers", "Printer profiles (thermal vs standard paper).", CapabilitySensitivity.Standard),
         new(Capabilities.InvoiceWrite, "Billing", "Create invoices", "Prepare and issue invoices from the price list; request refunds.", CapabilitySensitivity.PatientData),
         new(Capabilities.PaymentCollect, "Billing", "Collect payments", "Run a cashier session, take payments and issue receipts.", CapabilitySensitivity.PatientData),
@@ -58,6 +58,9 @@ public static class CapabilityCatalog
         new(Capabilities.OwnerSubscriptionsManage, "Owner", "Manage report recipients", "Bind or revoke owner digest recipients.", CapabilitySensitivity.Administrative),
         new(Capabilities.StaffAdmin, "Administration", "Manage staff sessions", "Revoke staff sessions within the organisation.", CapabilitySensitivity.Administrative),
         new(Capabilities.AuditRead, "Administration", "Read audit trail", "Read the organisation's audit records.", CapabilitySensitivity.Administrative),
+        new(Capabilities.DataExport, "Data", "Export operational data", "Download finance, schedule-capacity, staff and audit data as CSV or JSON (every export is logged).", CapabilitySensitivity.Administrative),
+        new(Capabilities.PatientDataExport, "Data", "Export patient data", "Download patient-identifying data (register, appointments, invoices by patient). Needs a stated purpose and password confirmation; logged.", CapabilitySensitivity.PatientData),
+        new(Capabilities.BackupManage, "Data", "Create and verify backups", "Create and verify the organisation's encrypted backup. A backup contains EVERY record, including clinical notes and signature images: needs a stated purpose and password confirmation; logged.", CapabilitySensitivity.Clinical),
     ];
 
     private static readonly Dictionary<string, CapabilityInfo> ByCode = All.ToDictionary(c => c.Code, StringComparer.Ordinal);

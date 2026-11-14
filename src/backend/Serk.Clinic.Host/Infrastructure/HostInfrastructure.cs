@@ -32,7 +32,11 @@ public sealed class RequestSizeLimitMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext http)
     {
-        if (http.Request.ContentLength > SerkHost.MaxRequestBodyBytes)
+        // One documented exception: verifying an organisation backup uploads the (encrypted) backup file itself.
+        var limit = HttpMethods.IsPost(http.Request.Method) && http.Request.Path.Equals(Serk.Clinic.Platform.Backup.BackupService.VerifyPath, StringComparison.OrdinalIgnoreCase)
+            ? Serk.Clinic.Platform.Backup.BackupService.MaxUploadBytes
+            : SerkHost.MaxRequestBodyBytes;
+        if (http.Request.ContentLength > limit)
         {
             http.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
             await Results.Problem(title: "Payload too large", detail: "The request body exceeds the allowed size.", statusCode: 413).ExecuteAsync(http);
@@ -42,11 +46,11 @@ public sealed class RequestSizeLimitMiddleware(RequestDelegate next)
         var feature = http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
         if (feature is { IsReadOnly: false })
         {
-            feature.MaxRequestBodySize = SerkHost.MaxRequestBodyBytes;
+            feature.MaxRequestBodySize = limit;
         }
 
         // Chunked bodies have no Content-Length: cap the bytes actually read.
-        http.Request.Body = new LimitedReadStream(http.Request.Body, SerkHost.MaxRequestBodyBytes);
+        http.Request.Body = new LimitedReadStream(http.Request.Body, limit);
         await next(http);
     }
 
