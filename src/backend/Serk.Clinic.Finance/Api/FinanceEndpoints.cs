@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Serk.Clinic.Finance.Application;
 using Serk.Clinic.Platform.Http;
 using Serk.Clinic.SharedKernel;
@@ -40,6 +41,14 @@ public static class FinanceEndpoints
             var (ok, body) = await ReadSignedAsync<ProviderCallback>(http, config["Finance:Providers:Sandbox:Secret"], ct);
             return ok ? (await s.ConfirmProviderAsync(body!, ct)).ToHttp(Results.Ok) : Results.Unauthorized();
         }).AllowAnonymous();
+
+        // Sandbox simulator for demos and tests: stands in for the provider's callback. Available ONLY in synthetic environments
+        // (Development/Testing/Demo) AND when explicitly switched on; by the finance supervisor, not the collecting cashier.
+        billing.MapGet("/sandbox", (IConfiguration config, IHostEnvironment env) => Results.Ok(new { manualConfirm = SandboxEnabled(config, env) })).RequireCapability();
+        billing.MapPost("/payments/{id:guid}/sandbox-confirm", async (Guid id, IConfiguration config, IHostEnvironment env, BillingService s, CancellationToken ct) =>
+            SandboxEnabled(config, env)
+                ? (await s.SandboxConfirmAsync(id, ct)).ToHttp(Results.Ok)
+                : ResultHttp.Problem(Error.Forbidden("sandbox_disabled", "Provider simulation is not available in this environment."))).RequireCapability(Capabilities.FinanceClose);
 
         var finance = app.MapGroup("/api/v1/finance").WithTags("Finance");
         finance.MapPost("/refunds", async (RefundRequest body, BillingService s, CancellationToken ct) => (await s.RequestRefundAsync(body, ct)).ToHttp(Results.Ok)).RequireCapability(Capabilities.InvoiceWrite);
@@ -81,6 +90,9 @@ public static class FinanceEndpoints
             return ok ? (await s.VerifyAsync(body!, ct)).ToHttp(_ => Results.NoContent()) : Results.Unauthorized();
         }).AllowAnonymous();
     }
+
+    private static bool SandboxEnabled(IConfiguration config, IHostEnvironment env) =>
+        (env.IsDevelopment() || env.IsEnvironment("Testing") || env.IsEnvironment("Demo")) && config.GetValue("Finance:Providers:Sandbox:AllowManualConfirm", false);
 
     /// <summary>Reads a JSON body and verifies its HMAC-SHA256 signature (hex) in constant time. No secret configured = always refused.</summary>
     private static async Task<(bool Ok, T? Body)> ReadSignedAsync<T>(HttpRequest http, string? secret, CancellationToken ct)

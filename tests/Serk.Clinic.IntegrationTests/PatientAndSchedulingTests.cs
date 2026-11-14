@@ -128,6 +128,12 @@ public class PatientAndSchedulingTests(SerkApiFixture f)
             durationMinutes = 20,
         }, Scenario.Key()));
         var results = await Task.WhenAll(attempts);
+        if (results.Any(x => (int)x.StatusCode >= 500))
+        {
+            // Seen intermittently and never reproduced in isolation: report what the server said.
+            var body = await results.First(x => (int)x.StatusCode >= 500).Content.ReadAsStringAsync();
+            Assert.Fail($"Server error in booking race. Statuses: {string.Join(",", results.Select(x => (int)x.StatusCode))}. Body: {body}. Recent log: {string.Join(" || ", f.Logs.Lines.TakeLast(12))}");
+        }
         Assert.Equal(1, results.Count(x => x.StatusCode == HttpStatusCode.Created));
         Assert.All(results.Where(x => x.StatusCode != HttpStatusCode.Created), x => Assert.Equal(HttpStatusCode.Conflict, x.StatusCode));
         Assert.Equal(1L, await f.OwnerScalarAsync<long>("SELECT count(*) FROM scheduling.appointments WHERE practitioner_id=@p AND starts_at >= @s AND starts_at < @e AND status='Booked'",

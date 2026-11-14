@@ -1,4 +1,4 @@
-/* SERK Clinic OS visual system: quiet off-white surfaces, charcoal text, restrained forest-green accent.
+/* SERK Clinic OS visual system: bright blue-and-white surfaces, deep navy text, clear blue accent, dental line-icon backdrop.
    Contrast targets WCAG 2.2 AA. Status is never conveyed by colour alone (always text + icon/shape). */
 @font-face { font-family: "Noto Sans"; src: url("/fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Noto Sans"; src: url("/fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
@@ -7,18 +7,19 @@
 
 /* Brand (clinic accent) is set at runtime by lib/theme.ts from facility settings; these are defaults. */
 :root {
-  --brand: #1e4d3a;
-  --brand-strong: #183e2e;
-  --brand-soft: #e6efe9;
-  --brand-dark: #8fb3a3;
-  --brand-soft-dark: #22332b;
+  --brand: #1257c9;
+  --brand-strong: #0e46a1;
+  --brand-soft: #e7f0fc;
+  --brand-dark: #8db4f0;
+  --brand-soft-dark: #16284a;
 
-  --surface: #f7f8f6;
+  --surface: #f3f8ff;
   --surface-raised: #ffffff;
-  --surface-sunken: #eef1ee;
-  --ink: #1b2120;
-  --ink-muted: #4f5955;
-  --rule: #d9dfdb;
+  --surface-sunken: #e9f1fc;
+  --ink: #10213a;
+  --ink-muted: #46597a;
+  --rule: #d2e0f3;
+  --pattern-opacity: 0.30;
   --accent: var(--brand);
   --accent-strong: var(--brand-strong);
   --accent-soft: var(--brand-soft);
@@ -28,11 +29,11 @@
   --warning: #7a4b00;
   --warning-soft: #fff4dc;
   --focus: #1a5fb4;
-  --shadow: 0 1px 2px rgba(16, 24, 20, 0.06), 0 4px 16px rgba(16, 24, 20, 0.05);
+  --shadow: 0 1px 2px rgba(18, 60, 130, 0.07), 0 6px 20px rgba(18, 60, 130, 0.07);
   /* data-viz (validated reference palette) */
   --series-1: #2a78d6;
   --series-2: #eb6834;
-  --chart-grid: #e6e8e4;
+  --chart-grid: #e1eaf6;
   --radius: 10px;
   --space-1: 4px;
   --space-2: 8px;
@@ -46,23 +47,26 @@
 /* Dark theme: OS preference unless the user chose light; or explicit choice. Eye-friendly low-glare surfaces. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --surface: #121614; --surface-raised: #1a1f1c; --surface-sunken: #222824; --ink: #e8ece9; --ink-muted: #a9b3ae; --rule: #313935;
-    --accent: var(--brand-dark); --accent-strong: #ffffff; --accent-soft: var(--brand-soft-dark); --on-accent: #0e1311;
+    --surface: #0c1422; --surface-raised: #131e31; --surface-sunken: #1a2840; --ink: #e7eefa; --ink-muted: #a5b6cf; --rule: #27364f; --pattern-opacity: 0.16;
+    --accent: var(--brand-dark); --accent-strong: #ffffff; --accent-soft: var(--brand-soft-dark); --on-accent: #0a1220;
     --danger: #f19999; --danger-soft: #3a1d1d; --warning: #f2c46b; --warning-soft: #33280f; --focus: #79a8ff;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4); --series-1: #3987e5; --series-2: #d95926; --chart-grid: #2b322e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4); --series-1: #3987e5; --series-2: #d95926; --chart-grid: #233047;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --surface: #121614; --surface-raised: #1a1f1c; --surface-sunken: #222824; --ink: #e8ece9; --ink-muted: #a9b3ae; --rule: #313935;
-  --accent: var(--brand-dark); --accent-strong: #ffffff; --accent-soft: var(--brand-soft-dark); --on-accent: #0e1311;
+  --surface: #0c1422; --surface-raised: #131e31; --surface-sunken: #1a2840; --ink: #e7eefa; --ink-muted: #a5b6cf; --rule: #27364f; --pattern-opacity: 0.16;
+  --accent: var(--brand-dark); --accent-strong: #ffffff; --accent-soft: var(--brand-soft-dark); --on-accent: #0a1220;
   --danger: #f19999; --danger-soft: #3a1d1d; --warning: #f2c46b; --warning-soft: #33280f; --focus: #79a8ff;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4); --series-1: #3987e5; --series-2: #d95926; --chart-grid: #2b322e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4); --series-1: #3987e5; --series-2: #d95926; --chart-grid: #233047;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+html { background: var(--surface); }
+html, body { margin: 0; color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+/* Decorative dental line-icon backdrop: fixed, very faint, behind everything; panels stay solid white so text contrast is unaffected. */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: url("/bg-dental.svg") 0 0 / 240px 240px; opacity: var(--pattern-opacity); }
 h1, h2, h3 { margin: 0 0 var(--space-3); line-height: 1.25; }
 h1 { font-size: 1.35rem; }
 h2 { font-size: 1.1rem; }
@@ -125,7 +129,7 @@ th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color
 .alert { border-radius: var(--radius); padding: var(--space-3); margin-bottom: var(--space-3); border: 1px solid; }
 .alert-error { background: var(--danger-soft); border-color: #e3b4b4; color: var(--danger); }
 .alert-warning { background: var(--warning-soft); border-color: #e8d3a6; color: var(--warning); }
-.alert-info { background: var(--accent-soft); border-color: #bcd3c5; color: var(--accent-strong); }
+.alert-info { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent-strong); }
 
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
 .badge-ok { color: var(--accent); background: var(--accent-soft); }
@@ -262,3 +266,29 @@ details > summary { cursor: pointer; font-weight: 600; }
 .admin-split > section { min-width: 0; overflow-wrap: anywhere; }
 .admin-split table { table-layout: fixed; width: 100%; }
 .admin-split table th:first-child { width: 46%; }
+
+/* ---- Bright blue refresh + finance screens ---- */
+.topbar { border-top: 3px solid var(--accent); }
+.shell-nav .brand { color: var(--accent); }
+.kpi { border-top: 3px solid var(--accent); }
+.btn-primary { box-shadow: 0 1px 2px rgba(18, 87, 201, 0.25); }
+.money { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+td.money, th.money { text-align: right; }
+.figure-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }
+.figure { background: var(--surface-sunken); border-radius: var(--radius); padding: var(--space-2) var(--space-3); }
+.figure .figure-label { font-size: 0.78rem; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.figure .figure-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.figure .figure-sub { font-size: 0.8rem; color: var(--ink-muted); }
+.check-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
+.check-list li { display: flex; gap: var(--space-2); align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.steps { list-style: none; margin: 0; padding: 0 0 0 var(--space-4); border-left: 2px solid var(--accent); }
+.steps li { position: relative; padding: 0 0 var(--space-3) var(--space-3); }
+.steps li::before { content: ""; position: absolute; left: -23px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--accent); }
+pre.digest { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 0.8rem; background: var(--surface-sunken); padding: var(--space-3); border-radius: var(--radius); overflow-x: auto; margin: 0; }
+.inline-form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: flex-end; }
+.inline-form .field { margin-bottom: 0; }
+.inline-form input, .inline-form select { width: auto; min-width: 120px; }
+.receipt { border: 1px dashed var(--ink-muted); border-radius: var(--radius); padding: var(--space-3); max-width: 360px; background: var(--surface-raised); }
+@media print { body::before, .shell-nav, .topbar, .synthetic-banner, .no-print { display: none !important; } .shell { display: block; } .panel { box-shadow: none; border: 0; } }
+.inline-form input, .inline-form select { font: inherit; padding: 8px 10px; border: 1px solid var(--ink-muted); border-radius: 8px; background: var(--surface-raised); color: var(--ink); }
+.shell-main { background: transparent; }

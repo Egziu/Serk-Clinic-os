@@ -52,8 +52,8 @@ export function AllergyBadge({ status }: { status: string | null }) {
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const cls = status === "Signed" || status === "Final" ? "badge-ok" : status === "Superseded" || status === "Cancelled" ? "badge-neutral" : "badge-warning";
-  const symbol = status === "Signed" || status === "Final" ? "✓ " : status === "Draft" || status === "InProgress" ? "✎ " : "";
+  const cls = status === "Signed" || status === "Final" || status === "Paid" ? "badge-ok" : status === "Superseded" || status === "Cancelled" ? "badge-neutral" : "badge-warning";
+  const symbol = status === "Signed" || status === "Final" || status === "Paid" ? "✓ " : status === "Draft" || status === "InProgress" ? "✎ " : "";
   const labels: Record<string, string> = { InProgress: "Draft — not signed", CheckedIn: "Checked in", NoShow: "No-show" };
   return <span className={`badge ${cls}`}>{symbol}{labels[status] ?? status}</span>;
 }

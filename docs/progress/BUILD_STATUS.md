@@ -40,12 +40,20 @@ System administration (2026-11-10): super administrator console + API, custom ro
   validity windows, forced password change, append-only change log (ADR-0013). Review round 3: High/Medium fixed with tests;
   CRITICAL F1 (no two-person rule — one super admin can obtain clinical access via a second account) OPEN pending owner
   decision; F3 (separate DB role for identity writes) open.
+Finance (2026-11-14, ADR-0014): Care+ Finance pack v2.0 first slice — price list, invoices, cash and sandbox electronic
+  payments, receipts, double-entry ledger (DB-enforced balance and immutability), drawers, settlements, refunds,
+  maker-checker, daily close with hashed snapshot, PHI-free owner digest via outbox (sandbox channel only; nothing sent
+  externally). tools/verify.sh PASS: 142 unit + 24 architecture + 112 integration (9 FIN-*), 0 failed; Playwright 15/15.
+  (docs/evidence/finance/verify-20261114T171809Z.log, e2e-20261114T171809Z.log). Per-item status incl. NOT IMPLEMENTED / NOT RUN:
+  docs/progress/FINANCE_PACK_STATUS.md. Accountant review NOT RUN — default chart is illustrative; no tax handling.
+  Known issue: APPT-002 failed intermittently twice (HTTP 500), not reproduced in 27 later runs, cause unknown.
+  UI theme changed to bright blue/white with a dental line-icon backdrop.
 Known blockers / risks (ranked):
   0. Super-admin two-person rule not implemented (ACCESS-014, review round 3 F1)
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed
   4. Open review items (rate limits, composite FKs, outbox RLS/worker role, identity grants, forwarded headers/HSTS)
   5. Dental DENT-004 (estimate/consent) not implemented
-Next task: DENT-004 treatment plan + consent; per-user rate limiting; then Dermatology per MASTER_BUILD_PROMPT §4 E.
+Next task: finance gaps in FINANCE_PACK_STATUS.md (owner to prioritise), DENT-004 treatment plan + consent; per-user rate limiting; then Dermatology per MASTER_BUILD_PROMPT §4 E.
 ```
 
 ## How to resume

@@ -18,7 +18,7 @@ export ConnectionStrings__Migrations="$ADMIN;Database=$DB"
 export ObjectStore__RootPath="$ROOT/.local/e2e-objects"
 export Diagnostics__LogExceptionDetails=false
 # The suite signs in ~15 times in under a minute; the production default (10/min per client) is tested separately.
-export RateLimits__LoginPerMinute=60
+export RateLimits__LoginPerMinute=120
 rm -rf "$ROOT/.local/e2e-objects"
 mkdir -p "$ROOT/artifacts"
 if curl -s -o /dev/null http://localhost:5080/health/live; then

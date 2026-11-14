@@ -465,6 +465,17 @@ public sealed class BillingService(DbSession session, RequestContext context, Le
         return ToDto(payment);
     }
 
+    /// <summary>Demo/test stand-in for the provider callback (the endpoint enforces environment and switch).</summary>
+    public async Task<Result<PaymentDto>> SandboxConfirmAsync(Guid paymentId, CancellationToken ct)
+    {
+        var actor = context.RequireActor();
+        var db = await ledger.DbAsync(ct);
+        var payment = await db.Payments.AsNoTracking().SingleOrDefaultAsync(p => p.Id == paymentId && p.TenantId == actor.TenantId && p.FacilityId == actor.FacilityId && p.Tender != "Cash", ct);
+        return payment is null
+            ? Error.NotFound()
+            : await ConfirmProviderAsync(new ProviderCallback(actor.TenantId, payment.Provider, payment.ProviderReference, payment.Amount, payment.Currency, "confirmed"), ct);
+    }
+
     // ---------- refunds (maker-checker) ----------
     public async Task<Result<RefundDto>> RequestRefundAsync(RefundRequest body, CancellationToken ct)
     {

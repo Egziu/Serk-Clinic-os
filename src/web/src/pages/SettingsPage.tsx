@@ -90,7 +90,7 @@ function AppearancePanel({ settings, onSaved }: { settings: FacilitySettings; on
             <input id="accent-picker" type="color" value={valid ? color : "#000000"} onChange={(e) => setColor(e.target.value)} />
             <label htmlFor="accent-hex" className="sr-only">Accent colour hex code</label>
             <input id="accent-hex" type="text" value={color} onChange={(e) => setColor(e.target.value.trim())} maxLength={7} spellCheck={false} />
-            <button type="button" className="btn" onClick={() => setColor("#1e4d3a")}>Reset to SERK green</button>
+            <button type="button" className="btn" onClick={() => setColor("#1257c9")}>Reset to SERK blue</button>
           </div>
         </div>
         <div className="field" aria-live="polite">

@@ -15,6 +15,10 @@ const paths: Record<string, ReactElement> = {
   upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m17 8-5-5-5 5M12 3v12" /></>,
   shield: <><path d="M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 8.2-8.2M15 8l2.5 2.5M17.5 5.5 20 8" /></>,
+  tooth: <path d="M12 5.5c-2-1.5-6-1-6 3 0 2.5 1 3.5 1.5 6 .5 3 1 5.5 2.5 5.5 1.800 0 .700-4.5 2-4.5s.200 4.5 2 4.5c1.5 0 2-2.5 2.5-5.5.5-2.5 1.5-3.5 1.5-6 0-4-4-4.5-6-3Z" />,
+  cash: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M6 10v4M18 10v4" /></>,
+  ledger: <><path d="M4 4h13a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4Z" /><path d="M8 9h8M8 13h8M8 17h5" /></>,
+  report: <><path d="M4 20V4M4 20h16" /><path d="M8 16v-4M12 16V8M16 16v-6" /></>,
   download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5M12 15V3" /></>,
 };
 

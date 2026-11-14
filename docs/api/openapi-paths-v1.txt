@@ -17,6 +17,8 @@
 /api/v1/billing/invoices/{id}/payments/cash
 /api/v1/billing/invoices/{id}/payments/electronic
 /api/v1/billing/payments/confirm
+/api/v1/billing/payments/{id}/sandbox-confirm
+/api/v1/billing/sandbox
 /api/v1/billing/services
 /api/v1/branding-assets/{id}/content
 /api/v1/documents

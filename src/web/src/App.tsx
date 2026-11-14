@@ -11,12 +11,16 @@ import { SettingsPage, type FacilitySettings } from "./pages/SettingsPage";
 import { SignaturePage } from "./pages/SignaturePage";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/admin/AdminPage";
+import { BillingPage } from "./pages/finance/BillingPage";
+import { FinancePage } from "./pages/finance/FinancePage";
+import { OwnerPage } from "./pages/finance/OwnerPage";
 import { Icon } from "./components/icons";
 import { applyAccent, applyThemePreference, loadThemePreference, type ThemePreference } from "./lib/theme";
 
 export type Route =
   | { name: "home" } | { name: "reception" } | { name: "worklist" } | { name: "encounter"; id: string }
-  | { name: "dashboard" } | { name: "settings" } | { name: "signature" } | { name: "admin" } | { name: "account" };
+  | { name: "dashboard" } | { name: "settings" } | { name: "signature" } | { name: "admin" } | { name: "account" }
+  | { name: "billing" } | { name: "finance" } | { name: "owner" };
 
 function parseRoute(): Route {
   const m = window.location.pathname.match(/^\/encounters\/([0-9a-f-]{36})$/i);
@@ -27,6 +31,9 @@ function parseRoute(): Route {
   if (window.location.pathname.startsWith("/settings")) return { name: "settings" };
   if (window.location.pathname.startsWith("/signature")) return { name: "signature" };
   if (window.location.pathname.startsWith("/admin")) return { name: "admin" };
+  if (window.location.pathname.startsWith("/billing")) return { name: "billing" };
+  if (window.location.pathname.startsWith("/finance")) return { name: "finance" };
+  if (window.location.pathname.startsWith("/owner")) return { name: "owner" };
   if (window.location.pathname.startsWith("/account")) return { name: "account" };
   return { name: "home" };
 }
@@ -108,7 +115,8 @@ export function App() {
   const can = (cap: string) => session.capabilities.includes(cap);
   const affiliation = session.affiliations.find((a) => a.id === session.activeAffiliationId);
   // Landing page follows the role's primary task: management -> dashboard, clinical staff -> worklist, front desk -> reception.
-  const home: Route = can("clinical.encounter.read") ? { name: "worklist" } : can("patient.search") ? { name: "reception" } : can("analytics.read") ? { name: "dashboard" }
+  const home: Route = can("clinical.encounter.read") ? { name: "worklist" } : can("billing.payment.collect") ? { name: "billing" } : can("patient.search") ? { name: "reception" }
+    : can("finance.close") ? { name: "finance" } : can("analytics.read") ? { name: "dashboard" }
     : can("branding.manage") || can("printers.manage") ? { name: "settings" } : session.isPlatformAdmin ? { name: "admin" } : { name: "account" };
   const allowed = (r: Route): boolean =>
     r.name === "reception" ? can("patient.search")
@@ -117,12 +125,18 @@ export function App() {
       : r.name === "settings" ? can("branding.manage") || can("printers.manage")
       : r.name === "signature" ? can("clinical.note.sign")
       : r.name === "admin" ? session.isPlatformAdmin
+      : r.name === "billing" ? can("billing.invoice.write")
+      : r.name === "finance" ? can("finance.read")
+      : r.name === "owner" ? can("owner.reports.read")
       : true;
   const effectiveRoute: Route = route.name === "home" || !allowed(route) ? home : route;
   const navItems: { route: Route; label: string; icon: string; show: boolean }[] = [
     { route: { name: "dashboard" }, label: "Dashboard", icon: "dashboard", show: can("analytics.read") },
     { route: { name: "reception" }, label: t("reception"), icon: "reception", show: can("patient.search") },
     { route: { name: "worklist" }, label: t("worklist"), icon: "worklist", show: can("clinical.encounter.read") },
+    { route: { name: "billing" }, label: "Billing", icon: "cash", show: can("billing.invoice.write") },
+    { route: { name: "finance" }, label: "Finance", icon: "ledger", show: can("finance.read") },
+    { route: { name: "owner" }, label: "Owner reports", icon: "report", show: can("owner.reports.read") },
     { route: { name: "signature" }, label: "My signature", icon: "signature", show: can("clinical.note.sign") },
     { route: { name: "settings" }, label: "Settings", icon: "settings", show: can("branding.manage") || can("printers.manage") },
     { route: { name: "admin" }, label: "System admin", icon: "shield", show: session.isPlatformAdmin },
@@ -144,6 +158,7 @@ export function App() {
         <nav className="shell-nav" aria-label="Primary">
           <div className="brand">
             {facility?.logo ? <img src={`/api/v1/branding-assets/${facility.logo.id}/content`} alt="" /> : null}
+            {!facility?.logo && <Icon name="tooth" size={26} />}
             <span>{t("appName")}</span>
           </div>
           <ul>
@@ -189,6 +204,9 @@ export function App() {
             {effectiveRoute.name === "dashboard" && <DashboardPage />}
             {effectiveRoute.name === "settings" && <SettingsPage canBrand={can("branding.manage")} canPrinters={can("printers.manage")} onSettingsChanged={setFacility} />}
             {effectiveRoute.name === "signature" && <SignaturePage />}
+            {effectiveRoute.name === "billing" && <BillingPage />}
+            {effectiveRoute.name === "finance" && <FinancePage can={can} />}
+            {effectiveRoute.name === "owner" && <OwnerPage canManage={can("owner.subscriptions.manage")} />}
             {effectiveRoute.name === "admin" && <AdminPage currentUserId={session.userId} />}
             {effectiveRoute.name === "account" && <AccountPage session={session} forced={false} onSession={onSession} />}
           </main>

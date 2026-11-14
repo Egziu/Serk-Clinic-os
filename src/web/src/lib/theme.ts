@@ -60,8 +60,8 @@ export interface AccentTokens {
 }
 
 // Dark-theme surfaces and the dark-mode text colour on accent buttons (keep in sync with styles.css).
-const DARK_SURFACES = ["#121614", "#1a1f1c", "#222824"];
-const DARK_ON_ACCENT = "#0e1311";
+const DARK_SURFACES = ["#0c1422", "#131e31", "#1a2840"];
+const DARK_ON_ACCENT = "#0a1220";
 const MIN_TEXT_CONTRAST = 4.5;
 
 /**
@@ -77,7 +77,7 @@ export function deriveAccent(hex: string): AccentTokens {
     softT = Math.min(1, softT + 0.01);
     brandSoft = mix(hex, "#ffffff", softT);
   }
-  const brandSoftDark = mix(hex, "#141816", 0.78);
+  const brandSoftDark = mix(hex, "#101a2c", 0.78);
   let darkT = 0.45;
   let brandDark = mix(hex, "#ffffff", darkT);
   const darkOk = (c: string) =>
