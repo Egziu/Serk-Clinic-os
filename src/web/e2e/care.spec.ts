@@ -51,7 +51,7 @@ test.describe.serial("Care+ and social media", () => {
     await o.getByRole("button", { name: "Schedule campaign" }).click();
     await expect(o.getByRole("region", { name: "Campaigns" })).toContainText(`Brush twice daily ${run}`);
     await o.getByRole("tab", { name: "Message templates" }).click();
-    await expect(o.getByRole("form", { name: /Reminder \(24 h before\) · Amharic/ })).toBeVisible();
+    await expect(o.getByRole("form", { name: /Reminder before the visit · Amharic/ })).toBeVisible();
     await o.getByRole("tab", { name: "Overview" }).click();
     await expect(o.getByRole("group", { name: "Care+ indicators" })).toContainText("Agreed to reminders");
     await expectNoSeriousA11yViolations(o, "care");

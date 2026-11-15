@@ -1,0 +1,47 @@
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 60 modules transformed.
+rendering chunks...
+computing gzip size...
+../backend/Serk.Clinic.Host/wwwroot/index.html                   0.45 kB │ gzip:   0.28 kB
+../backend/Serk.Clinic.Host/wwwroot/assets/index-D9LuO8Xo.css   27.78 kB │ gzip:   6.33 kB
+../backend/Serk.Clinic.Host/wwwroot/assets/index-C3Yt6J3h.js   481.11 kB │ gzip: 130.95 kB
+
+✓ built in 273ms
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:08.64
+
+Running 26 tests using 1 worker
+
+  ✓   1 e2e/automation-notices.spec.ts:8:3 › Automation, follow-up recalls and the notice board › owner tunes appointment automation (2.6s)
+  ✓   2 e2e/automation-notices.spec.ts:20:3 › Automation, follow-up recalls and the notice board › dentist schedules a follow-up from the encounter and reception sees it in Recalls (3.4s)
+  ✓   3 e2e/automation-notices.spec.ts:56:3 › Automation, follow-up recalls and the notice board › owner posts a must-read notice; reception acknowledges; owner sees who has read it (2.7s)
+  ✓   4 e2e/care.spec.ts:7:3 › Care+ and social media › reception records SMS consent and creates a Telegram link code (2.0s)
+  ✓   5 e2e/care.spec.ts:26:3 › Care+ and social media › a clinician writes a health tip, another clinician approves it, the owner schedules a campaign (3.2s)
+  ✓   6 e2e/care.spec.ts:62:3 › Care+ and social media › owner plans consent-safe social posts and records results (2.1s)
+  ✓   7 e2e/dental.spec.ts:9:1 › dentist charts a surface finding by keyboard with wrong-tooth confirmation (3.5s)
+  ✓   8 e2e/dental.spec.ts:61:1 › reception prints an appointment slip on the default thermal printer (5.0s)
+  ✓   9 e2e/finance.spec.ts:10:3 › Finance: billing → payment → drawer → day close → owner report › cashier opens the drawer, bills from the price list, takes cash and records a mobile payment attempt (3.6s)
+  ✓  10 e2e/finance.spec.ts:58:3 › Finance: billing → payment → drawer → day close → owner report › finance supervisor confirms the provider payment in the sandbox and sees a balanced ledger and the money trace (1.9s)
+  ✓  11 e2e/finance.spec.ts:77:3 › Finance: billing → payment → drawer → day close → owner report › day close: cashier counts, finance submits, the owner approves and reads the report (4.0s)
+  ✓  12 e2e/management.spec.ts:5:3 › Management: branding, colour, printers, analytics › clinic admin customises colour, uploads logo and stamp, and classifies printers (2.5s)
+  ✓  13 e2e/management.spec.ts:58:3 › Management: branding, colour, printers, analytics › owner dashboard renders statistics and charts, in light and dark themes (3.1s)
+  ✓  14 e2e/management.spec.ts:94:3 › Management: branding, colour, printers, analytics › clinician uploads own signature (1.3s)
+  ✓  15 e2e/owner-setup.spec.ts:9:3 › Owner: setup, roles, exports, backups, insights › owner jumps to clinic setup with Ctrl+K and saves the profile; the letterhead preview follows (2.1s)
+  ✓  16 e2e/owner-setup.spec.ts:44:3 › Owner: setup, roles, exports, backups, insights › everyone sees roles and responsibilities; the owner also sees the team and permission matrix (2.2s)
+  ✓  17 e2e/owner-setup.spec.ts:58:3 › Owner: setup, roles, exports, backups, insights › owner exports the journal, creates an encrypted backup and verifies it (2.5s)
+  ✓  18 e2e/owner-setup.spec.ts:94:3 › Owner: setup, roles, exports, backups, insights › a receptionist sees roles but no data exports, backups or team list (574ms)
+  ✓  19 e2e/owner-staff.spec.ts:6:1 › owner creates a custom role and adds a new staff member with it; access can be fine-tuned (2.6s)
+  ✓  20 e2e/super-admin.spec.ts:13:3 › System super administration › super admin builds a custom role and gives a new person tailored access (4.9s)
+  ✓  21 e2e/super-admin.spec.ts:70:3 › System super administration › the new person must change the temporary password, then sees exactly the granted screens (2.0s)
+  ✓  22 e2e/super-admin.spec.ts:97:3 › System super administration › clinic administrators cannot open system administration (469ms)
+  ✓  23 e2e/vertical-slice.spec.ts:12:3 › Vertical slice: login → registration → appointment → encounter → sign → preview → final PDF › receptionist registers, books and checks in a patient (2.0s)
+  ✓  24 e2e/vertical-slice.spec.ts:40:3 › Vertical slice: login → registration → appointment → encounter → sign → preview → final PDF › clinician records allergy status, drafts, signs, previews and finalizes (9.6s)
+  ✓  25 e2e/vertical-slice.spec.ts:111:3 › Vertical slice: login → registration → appointment → encounter → sign → preview → final PDF › an unrelated tenant cannot open the encounter, and an unauthenticated browser gets the sign-in page (628ms)
+  ✓  26 e2e/vertical-slice.spec.ts:127:3 › Vertical slice: login → registration → appointment → encounter → sign → preview → final PDF › login page is keyboard operable and accessible (806ms)
+
+  26 passed (1.2m)

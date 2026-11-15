@@ -39,9 +39,12 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
         {
             try
             {
+                // Recalls and staff notices run in their own transactions: a fault there never blocks appointment messages.
+                var recalls = await GuardedAsync(() => InTenantAsync(tenant, RecallStepAsync, ct), "recalls");
+                await GuardedAsync(() => InTenantAsync(tenant, NoticeStepAsync, ct), "staff notices");
                 var planned = await InTenantAsync(tenant, PlanAsync, ct);
                 var (sent, failed, skipped) = await InTenantAsync(tenant, DispatchAsync, ct);
-                total = new AutomationRun(total.Planned + planned, total.Sent + sent, total.Failed + failed, total.Skipped + skipped);
+                total = new AutomationRun(total.Planned + planned + recalls, total.Sent + sent, total.Failed + failed, total.Skipped + skipped);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -50,6 +53,33 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
         }
 
         return total;
+    }
+
+    private async Task<int> GuardedAsync(Func<Task<int>> step, string name)
+    {
+        try
+        {
+            return await step();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Care+ automation step '{Step}' failed for one organisation; other steps continue.", name);
+            return 0;
+        }
+    }
+
+    private async Task<int> RecallStepAsync(DbSession session, Guid tenant, CancellationToken ct)
+    {
+        var settings = await AutomationStore.ForTenantAsync(session, ct);
+        var templates = (await session.QueryAsync("SELECT kind, language, body, is_enabled FROM care.message_templates",
+            r => (Kind: r.GetString(0), Lang: r.GetString(1), Body: r.GetString(2), Enabled: r.GetBoolean(3)), ct)).ToDictionary(x => (x.Kind, x.Lang));
+        return await ProcessRecallsAsync(session, tenant, clock.GetUtcNow(), settings, templates, ct);
+    }
+
+    private async Task<int> NoticeStepAsync(DbSession session, Guid tenant, CancellationToken ct)
+    {
+        await PostSystemNoticesAsync(session, tenant, clock.GetUtcNow(), await AutomationStore.ForTenantAsync(session, ct), ct);
+        return 0;
     }
 
     private async Task<T> InTenantAsync<T>(Guid tenant, Func<DbSession, Guid, CancellationToken, Task<T>> work, CancellationToken ct)
@@ -65,6 +95,7 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
     private async Task<int> PlanAsync(DbSession session, Guid tenant, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
+        var settings = await AutomationStore.ForTenantAsync(session, ct);
         var templates = (await session.QueryAsync("SELECT kind, language, body, is_enabled FROM care.message_templates",
             r => (Kind: r.GetString(0), Lang: r.GetString(1), Body: r.GetString(2), Enabled: r.GetBoolean(3)), ct))
             .ToDictionary(x => (x.Kind, x.Lang));
@@ -95,19 +126,48 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
             }
 
             var zone = BusinessTime.Resolve(c.TimeZone);
+            var s = settings.GetValueOrDefault(c.FacilityId, AutomationSettings.Default);
             var plan = new List<(string Kind, DateTimeOffset Due)>();
-            void Add(string kind, DateTimeOffset? due)
+            void Add(string kind, DateTimeOffset? due, bool beforeVisit = false)
             {
-                if (due is { } d && d <= now.AddDays(2))
+                if (due is not { } d || d > now.AddDays(4))
                 {
-                    plan.Add((kind, CareSchedule.RespectQuietHours(d < now ? now : d, zone)));
+                    return;
                 }
+
+                var at = CareSchedule.RespectQuietHours(d < now ? now : d, zone, s.QuietStart, s.QuietEnd);
+                if (beforeVisit && at > c.StartsAt.AddMinutes(-15))
+                {
+                    return; // quiet hours would push a reminder past the visit: skip it
+                }
+
+                plan.Add((kind, at));
             }
 
-            Add(MessageKinds.Confirmation, CareSchedule.ConfirmationDue(now, c.CreatedAt, c.StartsAt, c.Status));
-            Add(MessageKinds.Reminder, CareSchedule.ReminderDue(now, c.CreatedAt, c.StartsAt, c.Status));
-            Add(MessageKinds.FollowUp, CareSchedule.FollowUpDue(now, c.CheckedInAt, c.Status));
-            Add(MessageKinds.Rebook, CareSchedule.RebookDue(now, c.StartsAt, c.Status));
+            if (s.ConfirmationsEnabled)
+            {
+                Add(MessageKinds.Confirmation, CareSchedule.ConfirmationDue(now, c.CreatedAt, c.StartsAt, c.Status), beforeVisit: true);
+            }
+
+            if (s.ReminderEnabled)
+            {
+                Add(MessageKinds.Reminder, CareSchedule.ReminderDue(now, c.CreatedAt, c.StartsAt, c.Status, s.ReminderLeadHours), beforeVisit: true);
+            }
+
+            if (s.SameDayReminderEnabled)
+            {
+                Add(MessageKinds.SameDayReminder, CareSchedule.SameDayDue(now, c.CreatedAt, c.StartsAt, c.Status, s.SameDayLeadHours), beforeVisit: true);
+            }
+
+            if (s.FollowUpEnabled)
+            {
+                Add(MessageKinds.FollowUp, CareSchedule.FollowUpDue(now, c.CheckedInAt, c.Status, s.FollowUpDelayHours));
+            }
+
+            if (s.RebookEnabled)
+            {
+                Add(MessageKinds.Rebook, CareSchedule.RebookDue(now, c.StartsAt, c.Status));
+            }
             foreach (var (kind, due) in plan)
             {
                 var template = templates.TryGetValue((kind, c.Language), out var t) ? t : default;
@@ -133,11 +193,178 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
             """
             UPDATE care.messages m SET status = 'Cancelled', last_error = 'Appointment no longer booked'
             FROM scheduling.v_appointment_care a
-            WHERE m.source_id = a.id AND m.kind IN ('Confirmation', 'Reminder') AND m.status = 'Scheduled' AND a.status <> 'Booked'
+            WHERE m.source_id = a.id AND m.kind IN ('Confirmation', 'Reminder', 'SameDayReminder') AND m.status = 'Scheduled' AND a.status <> 'Booked'
             """, ct);
 
         planned += await QueueCampaignsAsync(session, tenant, now, ct);
         return planned;
+    }
+
+    /// <summary>
+    /// Recalls: create the automatic check-up recall after a visit (when the patient has nothing booked), mark recalls
+    /// booked/done/reopened from the appointment book, invite consenting patients ahead of the due date, and escalate
+    /// overdue recalls to the care desk.
+    /// </summary>
+    private static async Task<int> ProcessRecallsAsync(DbSession session, Guid tenant, DateTimeOffset now, Dictionary<Guid, AutomationSettings> settings,
+        Dictionary<(string Kind, string Lang), (string Kind, string Lang, string Body, bool Enabled)> templates, CancellationToken ct)
+    {
+        var facilities = await session.QueryAsync("SELECT facility_id, clinic_name, clinic_phone, time_zone FROM configuration.v_clinic_identity",
+            r => (Id: r.GetGuid(0), Name: r.GetString(1), Phone: r.GetString(2), Zone: r.GetString(3)), ct);
+        var created = 0;
+        foreach (var f in facilities)
+        {
+            var s = settings.GetValueOrDefault(f.Id, AutomationSettings.Default);
+            var zone = BusinessTime.Resolve(f.Zone);
+            var today = BusinessTime.LocalDate(now, zone);
+            if (s.AutoCheckupRecallEnabled)
+            {
+                await session.ExecAsync(
+                    """
+                    INSERT INTO care.recalls (id, tenant_id, facility_id, patient_id, kind, note, due_on, status, source, source_appointment_id, created_by, created_at)
+                    SELECT gen_random_uuid(), @t, a.facility_id, a.patient_id, 'CheckUp', '', ((a.checked_in_at AT TIME ZONE @tz)::date + make_interval(months => @m))::date,
+                           'Due', 'Automatic', a.id, @auto, @now
+                    FROM scheduling.v_appointment_care a
+                    WHERE a.facility_id = @f AND a.status IN ('CheckedIn', 'Completed') AND a.checked_in_at > @now - interval '3 days'
+                      AND NOT EXISTS (SELECT 1 FROM care.recalls r WHERE r.patient_id = a.patient_id AND r.status IN ('Due', 'Booked'))
+                      AND NOT EXISTS (SELECT 1 FROM scheduling.v_appointment_care x WHERE x.patient_id = a.patient_id AND x.status = 'Booked' AND x.starts_at > @now)
+                    ON CONFLICT (tenant_id, source_appointment_id) WHERE source = 'Automatic' DO NOTHING
+                    """, ct, ("t", tenant), ("f", f.Id), ("tz", f.Zone), ("m", s.AutoCheckupMonths), ("auto", AutomationUserId), ("now", now));
+            }
+
+            // Booked: a new appointment at this facility, made after the recall, not more than 60 days before it is due.
+            await session.ExecAsync(
+                """
+                UPDATE care.recalls r SET status = 'Booked', booked_appointment_id = sub.appt, version = r.version + 1
+                FROM (SELECT r2.id AS recall_id,
+                             (SELECT a.id FROM scheduling.v_appointment_care a
+                              WHERE a.patient_id = r2.patient_id AND a.facility_id = r2.facility_id AND a.status = 'Booked' AND a.created_at > r2.created_at
+                                AND (a.starts_at AT TIME ZONE @tz)::date >= r2.due_on - 60 AND a.starts_at > @now
+                              ORDER BY a.starts_at LIMIT 1) AS appt
+                      FROM care.recalls r2 WHERE r2.facility_id = @f AND r2.status = 'Due') sub
+                WHERE r.id = sub.recall_id AND sub.appt IS NOT NULL
+                """, ct, ("f", f.Id), ("tz", f.Zone), ("now", now));
+            // Visit happened -> done; booking cancelled or missed -> due again.
+            await session.ExecAsync(
+                """
+                UPDATE care.recalls r SET status = CASE WHEN a.status IN ('CheckedIn', 'Completed') THEN 'Done' ELSE 'Due' END,
+                       booked_appointment_id = CASE WHEN a.status IN ('CheckedIn', 'Completed') THEN r.booked_appointment_id END,
+                       closed_at = CASE WHEN a.status IN ('CheckedIn', 'Completed') THEN @now END,
+                       close_reason = CASE WHEN a.status IN ('CheckedIn', 'Completed') THEN 'Patient attended' END,
+                       version = r.version + 1
+                FROM scheduling.v_appointment_care a
+                WHERE a.id = r.booked_appointment_id AND r.facility_id = @f AND r.status = 'Booked' AND a.status IN ('CheckedIn', 'Completed', 'Cancelled', 'NoShow')
+                """, ct, ("f", f.Id), ("now", now));
+
+            // Invitations to consenting patients.
+            var invite = await session.QueryAsync(
+                """
+                SELECT r.id, r.patient_id, r.due_on, c.preferred_channel, CASE c.preferred_channel WHEN 'Telegram' THEN c.telegram_chat_id ELSE c.sms_phone END, c.language,
+                       coalesce(p.given_name, '')
+                FROM care.recalls r
+                JOIN care.contact_preferences c ON c.patient_id = r.patient_id AND c.consent_recalls AND c.preferred_channel <> 'None'
+                LEFT JOIN patients.v_patient_contact p ON p.patient_id = r.patient_id
+                WHERE r.facility_id = @f AND r.status = 'Due' AND r.invited_at IS NULL AND r.due_on - @lead <= @today
+                """,
+                r => (Id: r.GetGuid(0), Patient: r.GetGuid(1), Due: r.GetFieldValue<DateOnly>(2), Channel: r.GetString(3), Address: r.Str(4), Lang: r.GetString(5), First: r.GetString(6)),
+                ct, ("f", f.Id), ("lead", s.RecallInviteLeadDays), ("today", today));
+            var template = MessageKinds.Recall;
+            foreach (var i in invite.Where(i => !string.IsNullOrEmpty(i.Address)))
+            {
+                var t = templates.TryGetValue((template, i.Lang), out var tpl) ? tpl : default;
+                if (t.Body is not null && !t.Enabled)
+                {
+                    continue;
+                }
+
+                var dueLocal = new DateTimeOffset(i.Due.ToDateTime(new TimeOnly(9, 0)), zone.GetUtcOffset(i.Due.ToDateTime(new TimeOnly(9, 0))));
+                var body = Templates.Render(t.Body ?? Templates.Default(template, i.Lang), new TemplateValues(f.Name, f.Phone, i.First, dueLocal, ""));
+                var at = CareSchedule.RespectQuietHours(now, zone, s.QuietStart, s.QuietEnd);
+                created += await session.ExecAsync(
+                    """
+                    INSERT INTO care.messages (id, tenant_id, facility_id, patient_id, kind, source_id, channel, address, body, due_at, status, created_at)
+                    VALUES (@id, @t, @f, @p, 'Recall', @r, @ch, @a, @b, @due, 'Scheduled', @now)
+                    ON CONFLICT (tenant_id, kind, source_id, patient_id) DO NOTHING
+                    """, ct, ("id", Guid.CreateVersion7()), ("t", tenant), ("f", f.Id), ("p", i.Patient), ("r", i.Id), ("ch", i.Channel), ("a", i.Address!), ("b", body), ("due", at), ("now", now));
+                await session.ExecAsync("UPDATE care.recalls SET invited_at = @now WHERE id = @id", ct, ("id", i.Id), ("now", now));
+            }
+
+            // Overdue: a person calls the patient.
+            await session.ExecAsync(
+                """
+                WITH overdue AS (
+                  UPDATE care.recalls SET escalated_at = @now, version = version + 1
+                  WHERE facility_id = @f AND status = 'Due' AND escalated_at IS NULL AND due_on + @days < @today
+                  RETURNING id, patient_id, kind, due_on)
+                INSERT INTO care.tasks (id, tenant_id, facility_id, patient_id, source, priority, summary, status, due_at, created_at)
+                SELECT gen_random_uuid(), @t, @f, o.patient_id, 'Recall', 'Normal',
+                       'Recall overdue (' || o.kind || ', due ' || to_char(o.due_on, 'YYYY-MM-DD') || ') — call to book', 'Open', @now, @now
+                FROM overdue o
+                """, ct, ("t", tenant), ("f", f.Id), ("days", s.RecallOverdueDays), ("today", today), ("now", now));
+        }
+
+        return created;
+    }
+
+    /// <summary>
+    /// Automatic staff notices (one per topic, facility and day; updated in place, archived when resolved): urgent
+    /// call-backs, overdue recalls, yesterday's day close not locked, and a stale or missing backup.
+    /// </summary>
+    private static async Task PostSystemNoticesAsync(DbSession session, Guid tenant, DateTimeOffset now, Dictionary<Guid, AutomationSettings> settings, CancellationToken ct)
+    {
+        var facilities = await session.QueryAsync("SELECT facility_id, clinic_name, time_zone FROM configuration.v_clinic_identity",
+            r => (Id: r.GetGuid(0), Name: r.GetString(1), Zone: r.GetString(2)), ct);
+        foreach (var f in facilities.Where(x => settings.GetValueOrDefault(x.Id, AutomationSettings.Default).StaffNoticesEnabled))
+        {
+            var zone = BusinessTime.Resolve(f.Zone);
+            var today = BusinessTime.LocalDate(now, zone);
+            var endOfDay = BusinessTime.DayRangeUtc(today, zone).EndUtc;
+            var urgent = await session.ScalarAsync<long>("SELECT count(*) FROM care.tasks WHERE facility_id = @f AND status = 'Open' AND priority = 'High'", ct, ("f", f.Id));
+            await UpsertNoticeAsync(session, tenant, f.Id, $"urgent-tasks:{f.Id:N}:{today:yyyyMMdd}", urgent > 0, "Urgent",
+                "Patients waiting for a call back", $"{urgent} patient(s) replied with a worrying message or a low rating. Open Care+ → Care desk and call them today.",
+                ["Receptionist", "Nurse", "Clinician", "Dentist"], endOfDay, now, ct);
+            var overdue = await session.ScalarAsync<long>("SELECT count(*) FROM care.recalls WHERE facility_id = @f AND status = 'Due' AND due_on < @today", ct, ("f", f.Id), ("today", today));
+            await UpsertNoticeAsync(session, tenant, f.Id, $"recalls:{f.Id:N}:{today:yyyyMMdd}", overdue > 0, "Important",
+                "Recalls to book", $"{overdue} patient(s) are past their recall date. Open Care+ → Recalls to book them.", ["Receptionist"], endOfDay, now, ct);
+            var yesterday = today.AddDays(-1);
+            var unclosed = await session.ScalarAsync<long>(
+                """
+                SELECT count(*) FROM finance.v_payment_facts p WHERE p.facility_id = @f AND p.business_date = @d AND p.status = 'Verified'
+                  AND NOT EXISTS (SELECT 1 FROM finance.v_close_facts c WHERE c.facility_id = @f AND c.business_date = @d AND c.status = 'Locked')
+                """, ct, ("f", f.Id), ("d", yesterday));
+            await UpsertNoticeAsync(session, tenant, f.Id, $"close:{f.Id:N}:{yesterday:yyyyMMdd}", unclosed > 0, "Important",
+                "Yesterday's day close is not locked", $"There are verified payments on {yesterday:yyyy-MM-dd} but no locked daily close. Open Finance → Day close.",
+                ["FinanceSupervisor", "Owner"], endOfDay, now, ct);
+        }
+
+        // Npgsql returns timestamptz as a UTC DateTime; read it as such (a DateTimeOffset cast throws once any backup exists).
+        var lastBackupUtc = await session.ScalarAsync<DateTime?>("SELECT max(created_at) FROM platform.backup_log WHERE action = 'Created'", ct);
+        DateTimeOffset? lastBackup = lastBackupUtc is { } b ? new DateTimeOffset(DateTime.SpecifyKind(b, DateTimeKind.Utc)) : null;
+        var week = System.Globalization.ISOWeek.GetWeekOfYear(now.UtcDateTime);
+        await UpsertNoticeAsync(session, tenant, null, $"backup:{now.UtcDateTime:yyyy}w{week}", lastBackup is null || now - lastBackup.Value > TimeSpan.FromDays(7), "Important",
+            "Take an encrypted backup", lastBackup is null ? "No backup has been taken yet. Open Data & backups → Backups." : $"The last backup is {(int)(now - lastBackup.Value).TotalDays} days old. Open Data & backups → Backups.",
+            ["Owner"], now.AddDays(7), now, ct);
+    }
+
+    private static async Task UpsertNoticeAsync(DbSession session, Guid tenant, Guid? facility, string key, bool active, string priority, string title, string body,
+        string[] roles, DateTimeOffset expires, DateTimeOffset now, CancellationToken ct)
+    {
+        if (active)
+        {
+            await session.ExecAsync(
+                """
+                INSERT INTO comms.notices (id, tenant_id, facility_id, title, body, priority, audience_roles, pinned, requires_ack, expires_at, source, system_key, status, created_at, updated_at)
+                VALUES (@id, @t, @f, @ti, @b, @p, @roles, false, false, @exp, 'System', @k, 'Active', @now, @now)
+                ON CONFLICT (tenant_id, system_key) WHERE system_key IS NOT NULL
+                DO UPDATE SET body = EXCLUDED.body, updated_at = CASE WHEN comms.notices.body <> EXCLUDED.body THEN EXCLUDED.updated_at ELSE comms.notices.updated_at END
+                WHERE comms.notices.status = 'Active'
+                """, ct, ("id", Guid.CreateVersion7()), ("t", tenant), ("f", facility), ("ti", title), ("b", body), ("p", priority), ("roles", roles), ("exp", expires),
+                ("k", key), ("now", now));
+        }
+        else
+        {
+            await session.ExecAsync("UPDATE comms.notices SET status = 'Archived', archived_at = @now, system_key = system_key || ':closed:' || id::text, version = version + 1 WHERE tenant_id = @t AND system_key = @k AND status = 'Active'",
+                ct, ("t", tenant), ("k", key), ("now", now));
+        }
     }
 
     private static async Task<int> QueueCampaignsAsync(DbSession session, Guid tenant, DateTimeOffset now, CancellationToken ct)
@@ -215,14 +442,14 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
             """
             SELECT m.id, m.channel, m.address, m.body, m.kind, m.attempts, m.patient_id,
                    coalesce(c.consent_reminders, false), coalesce(c.consent_tips, false), coalesce(c.preferred_channel, 'None'),
-                   CASE m.channel WHEN 'Telegram' THEN c.telegram_chat_id ELSE c.sms_phone END
+                   CASE m.channel WHEN 'Telegram' THEN c.telegram_chat_id ELSE c.sms_phone END, coalesce(c.consent_recalls, false)
             FROM care.messages m LEFT JOIN care.contact_preferences c ON c.patient_id = m.patient_id
             WHERE m.status = 'Scheduled' AND m.due_at <= @now
             ORDER BY m.due_at LIMIT 1
             FOR UPDATE OF m SKIP LOCKED
             """,
             r => (Id: r.GetGuid(0), Channel: r.GetString(1), Address: r.GetString(2), Body: r.GetString(3), Kind: r.GetString(4), Attempts: r.GetInt32(5), Patient: r.GetGuid(6),
-                Reminders: r.GetBoolean(7), Tips: r.GetBoolean(8), Preferred: r.GetString(9), CurrentAddress: r.Str(10)),
+                Reminders: r.GetBoolean(7), Tips: r.GetBoolean(8), Preferred: r.GetString(9), CurrentAddress: r.Str(10), Recalls: r.GetBoolean(11)),
             ct, ("now", now));
         if (due.Count == 0)
         {
@@ -231,7 +458,7 @@ public sealed class CareAutomation(IServiceScopeFactory scopes, CareChannels cha
 
         var m = due[0];
         string? skip = null;
-        if (!(m.Kind == MessageKinds.Tip ? m.Tips : m.Reminders))
+        if (!(m.Kind == MessageKinds.Tip ? m.Tips : m.Kind == MessageKinds.Recall ? m.Recalls : m.Reminders))
         {
             skip = "No consent at send time";
         }

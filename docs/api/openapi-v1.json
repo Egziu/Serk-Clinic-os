@@ -3847,6 +3847,265 @@
         }
       }
     },
+    "/api/v1/care/automation": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Care+"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationSettingsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/recalls": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/recalls/{id}/close": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseRecallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notices": {
+      "get": {
+        "tags": [
+          "Notice board"
+        ],
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Notice board"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoticeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notices/unread-count": {
+      "get": {
+        "tags": [
+          "Notice board"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notices/{id}/read": {
+      "post": {
+        "tags": [
+          "Notice board"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notices/{id}/acknowledge": {
+      "post": {
+        "tags": [
+          "Notice board"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notices/{id}/receipts": {
+      "get": {
+        "tags": [
+          "Notice board"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notices/{id}/archive": {
+      "post": {
+        "tags": [
+          "Notice board"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/backups": {
       "get": {
         "tags": [
@@ -4049,6 +4308,125 @@
         },
         "additionalProperties": false
       },
+      "AutomationSettingsDto": {
+        "required": [
+          "confirmationsEnabled",
+          "reminderEnabled",
+          "reminderLeadHours",
+          "sameDayReminderEnabled",
+          "sameDayLeadHours",
+          "followUpEnabled",
+          "followUpDelayHours",
+          "rebookEnabled",
+          "quietStart",
+          "quietEnd",
+          "recallInviteLeadDays",
+          "recallOverdueDays",
+          "autoCheckupRecallEnabled",
+          "autoCheckupMonths",
+          "staffNoticesEnabled",
+          "isDefault",
+          "updatedAt",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "confirmationsEnabled": {
+            "type": "boolean"
+          },
+          "reminderEnabled": {
+            "type": "boolean"
+          },
+          "reminderLeadHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sameDayReminderEnabled": {
+            "type": "boolean"
+          },
+          "sameDayLeadHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "followUpEnabled": {
+            "type": "boolean"
+          },
+          "followUpDelayHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rebookEnabled": {
+            "type": "boolean"
+          },
+          "quietStart": {
+            "type": "string"
+          },
+          "quietEnd": {
+            "type": "string"
+          },
+          "recallInviteLeadDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recallOverdueDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "autoCheckupRecallEnabled": {
+            "type": "boolean"
+          },
+          "autoCheckupMonths": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "staffNoticesEnabled": {
+            "type": "boolean"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "BookAppointmentRequest": {
         "required": [
           "patientId",
@@ -4194,6 +4572,28 @@
         },
         "additionalProperties": false
       },
+      "CloseRecallRequest": {
+        "required": [
+          "status",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "CompleteTaskRequest": {
         "required": [
           "outcome"
@@ -4326,6 +4726,120 @@
             "format": "double"
           },
           "discountReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateNoticeRequest": {
+        "required": [
+          "title",
+          "body",
+          "priority",
+          "audienceRoles",
+          "allFacilities",
+          "pinned",
+          "requiresAck",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "priority": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audienceRoles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "allFacilities": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "requiresAck": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateRecallRequest": {
+        "required": [
+          "patientId",
+          "kind",
+          "dueOn",
+          "inWeeks",
+          "inMonths",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dueOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "inWeeks": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inMonths": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "note": {
             "type": [
               "null",
               "string"
@@ -5768,6 +6282,10 @@
               "null",
               "string"
             ]
+          },
+          "consentRecalls": {
+            "type": "boolean",
+            "default": false
           }
         },
         "additionalProperties": false
@@ -5952,6 +6470,9 @@
     },
     {
       "name": "Social media"
+    },
+    {
+      "name": "Notice board"
     },
     {
       "name": "Backups"

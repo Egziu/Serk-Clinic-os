@@ -10,13 +10,13 @@ using Serk.Clinic.SharedKernel;
 
 namespace Serk.Clinic.Care.Application;
 
-public sealed record ConsentEventDto(bool Reminders, bool Tips, string Method, DateTimeOffset RecordedAt);
+public sealed record ConsentEventDto(bool Reminders, bool Tips, string Method, DateTimeOffset RecordedAt, bool Recalls = false);
 
 public sealed record ContactDto(
     Guid PatientId, string SmsPhone, string RegisteredPhone, bool TelegramLinked, string PreferredChannel, string Language,
-    bool ConsentReminders, bool ConsentTips, string? ConsentMethod, DateTimeOffset? UpdatedAt, int Version, IReadOnlyList<ConsentEventDto> History);
+    bool ConsentReminders, bool ConsentTips, string? ConsentMethod, DateTimeOffset? UpdatedAt, int Version, IReadOnlyList<ConsentEventDto> History, bool ConsentRecalls = false);
 
-public sealed record UpdateContactRequest(string? SmsPhone, string? PreferredChannel, string? Language, bool ConsentReminders, bool ConsentTips, string? ConsentMethod);
+public sealed record UpdateContactRequest(string? SmsPhone, string? PreferredChannel, string? Language, bool ConsentReminders, bool ConsentTips, string? ConsentMethod, bool ConsentRecalls = false);
 
 public sealed record TelegramLinkDto(string Code, DateTimeOffset ExpiresAt, string? DeepLink, bool BotLive);
 
@@ -106,16 +106,16 @@ public sealed class CareService(DbSession session, RequestContext context, Audit
             errors["language"] = ["Choose English, Amharic or Tigrinya."];
         }
 
-        var anyConsent = r.ConsentReminders || r.ConsentTips;
+        var anyConsent = r.ConsentReminders || r.ConsentTips || r.ConsentRecalls;
         if (anyConsent && (r.ConsentMethod is null || !Methods.Contains(r.ConsentMethod)))
         {
             errors["consentMethod"] = ["Record how the patient agreed (verbal, written or via Telegram)."];
         }
 
         var current = await session.QueryAsync(
-            "SELECT telegram_chat_id, version, consent_reminders, consent_tips FROM care.contact_preferences WHERE patient_id = @p",
-            x => (Chat: x.Str(0), Version: x.GetInt32(1), Reminders: x.GetBoolean(2), Tips: x.GetBoolean(3)), ct, ("p", patientId));
-        var existing = current.Count == 1 ? current[0] : ((string?)null, 0, false, false);
+            "SELECT telegram_chat_id, version, consent_reminders, consent_tips, consent_recalls FROM care.contact_preferences WHERE patient_id = @p",
+            x => (Chat: x.Str(0), Version: x.GetInt32(1), Reminders: x.GetBoolean(2), Tips: x.GetBoolean(3), Recalls: x.GetBoolean(4)), ct, ("p", patientId));
+        var existing = current.Count == 1 ? current[0] : ((string?)null, 0, false, false, false);
         if (channel == "Sms" && phone.Length == 0)
         {
             errors["smsPhone"] = ["SMS needs a mobile number."];
@@ -139,30 +139,30 @@ public sealed class CareService(DbSession session, RequestContext context, Audit
         var now = clock.GetUtcNow();
         var changed = await session.ExecAsync(
             """
-            INSERT INTO care.contact_preferences (patient_id, tenant_id, sms_phone, preferred_channel, language, consent_reminders, consent_tips, consent_method, updated_by, updated_at, version)
-            VALUES (@p, @t, @phone, @ch, @lang, @rem, @tips, @method, @u, @now, 1)
+            INSERT INTO care.contact_preferences (patient_id, tenant_id, sms_phone, preferred_channel, language, consent_reminders, consent_tips, consent_recalls, consent_method, updated_by, updated_at, version)
+            VALUES (@p, @t, @phone, @ch, @lang, @rem, @tips, @recalls, @method, @u, @now, 1)
             ON CONFLICT (patient_id) DO UPDATE SET sms_phone = EXCLUDED.sms_phone, preferred_channel = EXCLUDED.preferred_channel, language = EXCLUDED.language,
-              consent_reminders = EXCLUDED.consent_reminders, consent_tips = EXCLUDED.consent_tips,
+              consent_reminders = EXCLUDED.consent_reminders, consent_tips = EXCLUDED.consent_tips, consent_recalls = EXCLUDED.consent_recalls,
               consent_method = coalesce(EXCLUDED.consent_method, care.contact_preferences.consent_method),
               updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at, version = care.contact_preferences.version + 1
             WHERE care.contact_preferences.version = @v
             """, ct, ("p", patientId), ("t", actor.TenantId), ("phone", phone), ("ch", channel), ("lang", language), ("rem", r.ConsentReminders),
-            ("tips", r.ConsentTips), ("method", anyConsent ? r.ConsentMethod : null), ("u", actor.UserId), ("now", now), ("v", existing.Item2));
+            ("tips", r.ConsentTips), ("recalls", r.ConsentRecalls), ("method", anyConsent ? r.ConsentMethod : null), ("u", actor.UserId), ("now", now), ("v", existing.Item2));
         if (changed == 0)
         {
             return Error.Precondition("contact_changed", "These contact details changed meanwhile. Reload and retry.");
         }
 
-        if (existing.Item3 != r.ConsentReminders || existing.Item4 != r.ConsentTips || current.Count == 0)
+        if (existing.Item3 != r.ConsentReminders || existing.Item4 != r.ConsentTips || existing.Item5 != r.ConsentRecalls || current.Count == 0)
         {
             await session.ExecAsync(
-                "INSERT INTO care.consent_events (id, tenant_id, patient_id, consent_reminders, consent_tips, method, recorded_by, recorded_at) VALUES (@id, @t, @p, @rem, @tips, @m, @u, @now)",
-                ct, ("id", Guid.CreateVersion7()), ("t", actor.TenantId), ("p", patientId), ("rem", r.ConsentReminders), ("tips", r.ConsentTips),
+                "INSERT INTO care.consent_events (id, tenant_id, patient_id, consent_reminders, consent_tips, consent_recalls, method, recorded_by, recorded_at) VALUES (@id, @t, @p, @rem, @tips, @recalls, @m, @u, @now)",
+                ct, ("id", Guid.CreateVersion7()), ("t", actor.TenantId), ("p", patientId), ("rem", r.ConsentReminders), ("tips", r.ConsentTips), ("recalls", r.ConsentRecalls),
                 ("m", anyConsent ? r.ConsentMethod : "StaffWithdrawal"), ("u", actor.UserId), ("now", now));
-            if (!r.ConsentReminders || !r.ConsentTips)
+            if (!r.ConsentReminders || !r.ConsentTips || !r.ConsentRecalls)
             {
                 // Withdrawn consent stops anything still queued for that purpose.
-                await CancelQueuedAsync(patientId, !r.ConsentReminders, !r.ConsentTips, ct);
+                await CancelQueuedAsync(patientId, !r.ConsentReminders, !r.ConsentTips, !r.ConsentRecalls, ct);
             }
         }
 
@@ -171,6 +171,7 @@ public sealed class CareService(DbSession session, RequestContext context, Audit
             ["channel"] = channel,
             ["consentReminders"] = r.ConsentReminders.ToString(),
             ["consentTips"] = r.ConsentTips.ToString(),
+            ["consentRecalls"] = r.ConsentRecalls.ToString(),
             ["method"] = r.ConsentMethod ?? "",
         }), ct);
         var dto = await ContactAsync(patientId, registered[0], ct);
@@ -615,21 +616,21 @@ public sealed class CareService(DbSession session, RequestContext context, Audit
     private async Task<ContactDto> ContactAsync(Guid patientId, string registeredPhone, CancellationToken ct)
     {
         var history = await session.QueryAsync(
-            "SELECT consent_reminders, consent_tips, method, recorded_at FROM care.consent_events WHERE patient_id = @p ORDER BY recorded_at DESC LIMIT 20",
-            r => new ConsentEventDto(r.GetBoolean(0), r.GetBoolean(1), r.GetString(2), r.GetFieldValue<DateTimeOffset>(3)), ct, ("p", patientId));
+            "SELECT consent_reminders, consent_tips, method, recorded_at, consent_recalls FROM care.consent_events WHERE patient_id = @p ORDER BY recorded_at DESC LIMIT 20",
+            r => new ConsentEventDto(r.GetBoolean(0), r.GetBoolean(1), r.GetString(2), r.GetFieldValue<DateTimeOffset>(3), r.GetBoolean(4)), ct, ("p", patientId));
         var rows = await session.QueryAsync(
-            "SELECT sms_phone, telegram_chat_id IS NOT NULL, preferred_channel, language, consent_reminders, consent_tips, consent_method, updated_at, version FROM care.contact_preferences WHERE patient_id = @p",
-            r => new ContactDto(patientId, r.GetString(0), registeredPhone, r.GetBoolean(1), r.GetString(2), r.GetString(3), r.GetBoolean(4), r.GetBoolean(5), r.Str(6), r.Time(7), r.GetInt32(8), history),
+            "SELECT sms_phone, telegram_chat_id IS NOT NULL, preferred_channel, language, consent_reminders, consent_tips, consent_method, updated_at, version, consent_recalls FROM care.contact_preferences WHERE patient_id = @p",
+            r => new ContactDto(patientId, r.GetString(0), registeredPhone, r.GetBoolean(1), r.GetString(2), r.GetString(3), r.GetBoolean(4), r.GetBoolean(5), r.Str(6), r.Time(7), r.GetInt32(8), history, r.GetBoolean(9)),
             ct, ("p", patientId));
         return rows.Count == 1 ? rows[0] : new ContactDto(patientId, SocialRules.NormalisePhone(registeredPhone), registeredPhone, false, "None", "en", false, false, null, null, 0, history);
     }
 
-    private async Task CancelQueuedAsync(Guid patientId, bool reminders, bool tips, CancellationToken ct) =>
+    private async Task CancelQueuedAsync(Guid patientId, bool reminders, bool tips, bool recalls, CancellationToken ct) =>
         await session.ExecAsync(
             """
             UPDATE care.messages SET status = 'Cancelled', last_error = 'Consent withdrawn'
-            WHERE patient_id = @p AND status = 'Scheduled' AND ((@rem AND kind <> 'Tip') OR (@tips AND kind = 'Tip'))
-            """, ct, ("p", patientId), ("rem", reminders), ("tips", tips));
+            WHERE patient_id = @p AND status = 'Scheduled' AND ((@rem AND kind NOT IN ('Tip', 'Recall')) OR (@tips AND kind = 'Tip') OR (@recalls AND kind = 'Recall'))
+            """, ct, ("p", patientId), ("rem", reminders), ("tips", tips), ("recalls", recalls));
 
     private async Task<(string Name, string Phone)> ClinicAsync(CancellationToken ct)
     {
@@ -697,10 +698,10 @@ internal static class CareReplies
         if (triage.OptOut)
         {
             await session.ExecAsync(
-                "UPDATE care.contact_preferences SET consent_reminders = false, consent_tips = false, updated_by = @a, updated_at = @now, version = version + 1 WHERE patient_id = @p",
+                "UPDATE care.contact_preferences SET consent_reminders = false, consent_tips = false, consent_recalls = false, updated_by = @a, updated_at = @now, version = version + 1 WHERE patient_id = @p",
                 ct, ("p", patient), ("a", actor), ("now", now));
             await session.ExecAsync(
-                "INSERT INTO care.consent_events (id, tenant_id, patient_id, consent_reminders, consent_tips, method, recorded_by, recorded_at) VALUES (@id, @t, @p, false, false, 'OptOutReply', @a, @now)",
+                "INSERT INTO care.consent_events (id, tenant_id, patient_id, consent_reminders, consent_tips, consent_recalls, method, recorded_by, recorded_at) VALUES (@id, @t, @p, false, false, false, 'OptOutReply', @a, @now)",
                 ct, ("id", Guid.CreateVersion7()), ("t", tenant), ("p", patient), ("a", actor), ("now", now));
             await session.ExecAsync("UPDATE care.messages SET status = 'Cancelled', last_error = 'Patient opted out' WHERE patient_id = @p AND status = 'Scheduled'", ct, ("p", patient));
         }

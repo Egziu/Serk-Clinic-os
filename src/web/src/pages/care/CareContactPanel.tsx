@@ -8,7 +8,7 @@ import type { Contact } from "./careTypes";
 export function CareContactPanel({ patientId, patientName }: { patientId: string; patientName: string }) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [etag, setEtag] = useState<string | null>(null);
-  const [form, setForm] = useState({ smsPhone: "", preferredChannel: "None", language: "en", consentReminders: false, consentTips: false, consentMethod: "Verbal" });
+  const [form, setForm] = useState({ smsPhone: "", preferredChannel: "None", language: "en", consentReminders: false, consentTips: false, consentRecalls: false, consentMethod: "Verbal" });
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
   const [code, setCode] = useState<{ code: string; expiresAt: string; deepLink: string | null; botLive: boolean } | null>(null);
@@ -17,7 +17,7 @@ export function CareContactPanel({ patientId, patientName }: { patientId: string
   useEffect(() => {
     api.get<Contact>(`/api/v1/care/patients/${patientId}/contact`).then((r) => {
       setContact(r.data); setEtag(r.etag); setSaved(false); setCode(null);
-      setForm({ smsPhone: r.data.smsPhone, preferredChannel: r.data.preferredChannel, language: r.data.language, consentReminders: r.data.consentReminders, consentTips: r.data.consentTips, consentMethod: r.data.consentMethod ?? "Verbal" });
+      setForm({ smsPhone: r.data.smsPhone, preferredChannel: r.data.preferredChannel, language: r.data.language, consentReminders: r.data.consentReminders, consentTips: r.data.consentTips, consentRecalls: r.data.consentRecalls, consentMethod: r.data.consentMethod ?? "Verbal" });
     }).catch(setError);
   }, [patientId, reload]);
 
@@ -56,8 +56,9 @@ export function CareContactPanel({ patientId, patientName }: { patientId: string
       <fieldset className="consent-box">
         <legend>The patient agrees to receive</legend>
         <label className="check-row"><input type="checkbox" checked={form.consentReminders} onChange={(e) => setForm({ ...form, consentReminders: e.target.checked })} /> Appointment confirmations, reminders and after-visit follow-up</label>
+        <label className="check-row"><input type="checkbox" checked={form.consentRecalls} onChange={(e) => setForm({ ...form, consentRecalls: e.target.checked })} /> Invitations to book check-ups and reviews when they are due</label>
         <label className="check-row"><input type="checkbox" checked={form.consentTips} onChange={(e) => setForm({ ...form, consentTips: e.target.checked })} /> Health tips approved by our medical team</label>
-        {(form.consentReminders || form.consentTips) && (
+        {(form.consentReminders || form.consentTips || form.consentRecalls) && (
           <Field id="cc-method" label="How did the patient agree?" error={fields?.consentMethod}>
             <select id="cc-method" value={form.consentMethod} onChange={(e) => setForm({ ...form, consentMethod: e.target.value })}>
               <option value="Verbal">Said yes at the desk (verbal)</option><option value="Written">Signed the consent form (written)</option><option value="Telegram">Agreed in Telegram</option>
@@ -85,7 +86,7 @@ export function CareContactPanel({ patientId, patientName }: { patientId: string
           <summary>Consent history ({contact.history.length})</summary>
           <ul className="small">
             {contact.history.map((h, i) => (
-              <li key={i}>{new Date(h.recordedAt).toLocaleString()}: reminders {h.reminders ? "yes" : "no"}, tips {h.tips ? "yes" : "no"} — {h.method}</li>
+              <li key={i}>{new Date(h.recordedAt).toLocaleString()}: reminders {h.reminders ? "yes" : "no"}, check-up invitations {h.recalls ? "yes" : "no"}, tips {h.tips ? "yes" : "no"} — {h.method}</li>
             ))}
           </ul>
         </details>

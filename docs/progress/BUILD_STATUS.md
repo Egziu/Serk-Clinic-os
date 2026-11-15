@@ -73,6 +73,16 @@ Owner staff & roles (2026-11-15, ADR-0017): owners add staff, assign built-in or
   rehearsal PASS; 83/104 release-blocking scenarios PASS. Verdict in docs/progress/READINESS_ASSESSMENT.md: GREEN for demo
   and supervised synthetic pilot, RED for real patients (clinical/legal/security approvals, MFA, production backups,
   Amharic/Tigrinya UI, treatment plans and prescriptions outstanding).
+Automation, recalls & notice board (2026-11-15, ADR-0018): per-branch automation settings (confirmation, main and
+  same-day reminders, follow-up delay, re-booking, quiet hours, recall timing); follow-up recalls set from the encounter
+  ("see again in 2 weeks") plus automatic 6-month check-up recall; recalls auto-marked Booked/Done, invitations only with
+  consent, overdue ones become call-back tasks; staff notice board with role audiences, priorities, must-acknowledge and
+  receipts, patient-identifier guard; automatic notices (urgent call-backs, recalls to book, day close, backup due).
+  verify.sh PASS (208 unit, 26 architecture, 136 integration, 21 web); Playwright 26/26. Bugs found and fixed while
+  testing: automatic notices broke for any clinic that had taken a backup; archived automatic notices could never come
+  back; hovered primary buttons were unreadable; two Care tests depended on the time of day. Review round 6: 2 Medium
+  fixed (branch-scoped notice receipts/archive; separate recall consent, off by default), 1 Low fixed, 2 Low accepted.
+  Recall default intervals need clinician review (HAZ-043..045 pending).
 Known blockers / risks (ranked):
   0. Super-admin two-person rule not implemented (ACCESS-014, review round 3 F1)
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed

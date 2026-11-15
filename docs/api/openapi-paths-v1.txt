@@ -23,6 +23,7 @@
 /api/v1/billing/sandbox
 /api/v1/billing/services
 /api/v1/branding-assets/{id}/content
+/api/v1/care/automation
 /api/v1/care/campaigns
 /api/v1/care/campaigns/{id}/cancel
 /api/v1/care/messages
@@ -31,6 +32,8 @@
 /api/v1/care/patients/{id}/contact
 /api/v1/care/patients/{id}/telegram-link
 /api/v1/care/patients/{id}/telegram-unlink
+/api/v1/care/recalls
+/api/v1/care/recalls/{id}/close
 /api/v1/care/replies
 /api/v1/care/replies/phone
 /api/v1/care/sandbox
@@ -80,6 +83,12 @@
 /api/v1/insights
 /api/v1/me/password
 /api/v1/me/signature
+/api/v1/notices
+/api/v1/notices/unread-count
+/api/v1/notices/{id}/acknowledge
+/api/v1/notices/{id}/archive
+/api/v1/notices/{id}/read
+/api/v1/notices/{id}/receipts
 /api/v1/organisation/admin/access-preview
 /api/v1/organisation/admin/assignments/{id}
 /api/v1/organisation/admin/catalog

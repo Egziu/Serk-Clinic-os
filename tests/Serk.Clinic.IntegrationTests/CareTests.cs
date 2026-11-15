@@ -92,7 +92,9 @@ public class CareTests(SerkApiFixture f)
         await f.OwnerScalarAsync<int>("UPDATE care.messages SET due_at = now() - interval '1 minute' WHERE patient_id = @p AND kind = 'Confirmation' RETURNING 1", ("p", yes));
         await Automation.RunOnceAsync(CancellationToken.None);
         Assert.Equal("Sent", await f.OwnerScalarAsync<string>("SELECT status FROM care.messages WHERE patient_id = @p AND kind = 'Confirmation'", ("p", yes)));
-        var text = Sandbox.Sent.Skip(before).Single(s => s.Channel == "Sms").Text;
+        // Outside quiet hours the confirmation may already have gone out on an earlier run; read what was actually sent.
+        var address = await f.OwnerScalarAsync<string>("SELECT address FROM care.messages WHERE patient_id = @p AND kind = 'Confirmation'", ("p", yes));
+        var text = Sandbox.Sent.Last(s => s.Channel == "Sms" && s.Address == address).Text;
         Assert.DoesNotContain("SECRET-REASON", text, StringComparison.Ordinal);
         Assert.Contains("STOP", text, StringComparison.Ordinal);
 
@@ -182,15 +184,16 @@ public class CareTests(SerkApiFixture f)
         using var reception = await f.LoginAsync(DemoData.Reception);
         var good = await ConsentingPatientAsync(reception, phone: "0911555001");
         var bad = await ConsentingPatientAsync(reception, phone: "0911555002");
-        await BookAsync(reception, good, 2);
-        await BookAsync(reception, bad, 2);
-        await Automation.RunOnceAsync(CancellationToken.None);
-        await MakeDueAsync(good);
-        await MakeDueAsync(bad);
+        // Counted, and the fault armed, before anything is sent: outside quiet hours the confirmation goes out on the first run.
+        var before = Sandbox.Sent.Count(s => s.Address == "+251911555001");
         Sandbox.FaultFor = a => a == "+251911555002" ? new InvalidDataException("provider sent HTML") : null;
         try
         {
-            var before = Sandbox.Sent.Count(s => s.Address == "+251911555001");
+            await BookAsync(reception, good, 2);
+            await BookAsync(reception, bad, 2);
+            await Automation.RunOnceAsync(CancellationToken.None);
+            await MakeDueAsync(good);
+            await MakeDueAsync(bad);
             await Automation.RunOnceAsync(CancellationToken.None);
             await Automation.RunOnceAsync(CancellationToken.None);
             Assert.Equal(before + 2, Sandbox.Sent.Count(s => s.Address == "+251911555001")); // confirmation + reminder, each exactly once
@@ -206,11 +209,13 @@ public class CareTests(SerkApiFixture f)
         var moved = await ConsentingPatientAsync(reception, phone: "0911555003");
         await BookAsync(reception, moved, 2);
         await Automation.RunOnceAsync(CancellationToken.None);
+        // Outside quiet hours the confirmation already went to the then-current number; nothing more may go there after the change.
+        var sentToOld = Sandbox.Sent.Count(s => s.Address == "+251911555003");
         await f.OwnerScalarAsync<int>("UPDATE care.contact_preferences SET sms_phone = '+251911555004' WHERE patient_id = @p RETURNING 1", ("p", moved));
         await MakeDueAsync(moved);
         await Automation.RunOnceAsync(CancellationToken.None);
-        Assert.DoesNotContain(Sandbox.Sent, s => s.Address == "+251911555003");
-        Assert.Equal("Contact details changed since planning", await f.OwnerScalarAsync<string>("SELECT last_error FROM care.messages WHERE patient_id = @p LIMIT 1", ("p", moved)));
+        Assert.Equal(sentToOld, Sandbox.Sent.Count(s => s.Address == "+251911555003"));
+        Assert.Equal("Contact details changed since planning", await f.OwnerScalarAsync<string>("SELECT last_error FROM care.messages WHERE patient_id = @p AND kind = 'Reminder'", ("p", moved)));
 
         // Campaigns reach only the creating facility's patients.
         var elsewhere = await ConsentingPatientAsync(reception, reminders: false, tips: true);
@@ -230,7 +235,7 @@ public class CareTests(SerkApiFixture f)
 
         using var owner = await f.LoginAsync(DemoData.Owner);
         var templates = await owner.GetJsonAsync("/api/v1/care/templates");
-        Assert.Equal(12, templates.GetArrayLength()); // 4 kinds × 3 languages
+        Assert.Equal(18, templates.GetArrayLength()); // 6 kinds × 3 languages
         Assert.Equal(HttpStatusCode.BadRequest, (await owner.SendAsync(HttpMethod.Put, "/api/v1/care/templates/Reminder/en", new { body = "Your diagnosis {diagnosis} is ready", isEnabled = true })).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await owner.SendAsync(HttpMethod.Put, "/api/v1/care/templates/Reminder/en", new { body = "See you tomorrow at {time}, {first_name}! — {clinic}", isEnabled = true })).StatusCode);
         var summary = await owner.GetJsonAsync("/api/v1/care/summary");

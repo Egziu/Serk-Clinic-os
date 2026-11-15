@@ -45,6 +45,7 @@ public static class BackupCatalog
         Rls("finance.delivery_attempts"),
         Rls("care.contact_preferences"), Rls("care.consent_events"), Rls("care.message_templates"), Rls("care.messages"), Rls("care.replies"),
         Rls("care.tasks"), Rls("care.health_tips"), Rls("care.campaigns"), Rls("care.social_posts"), Rls("care.social_metrics"),
+        Rls("care.automation_settings"), Rls("care.recalls"), Rls("comms.notices"), Rls("comms.notice_reads"),
         Rls("audit.audit_events"),
         Rls("platform.export_log"), Rls("platform.backup_log"),
     ];

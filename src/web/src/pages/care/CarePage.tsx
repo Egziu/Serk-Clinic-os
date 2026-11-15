@@ -2,18 +2,21 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import { ErrorAlert, Field } from "../../components/common";
 import { Icon } from "../../components/icons";
+import { AutomationSettings, Recalls } from "./RecallsAndAutomation";
 import { kindLabel, langLabel, type Campaign, type CareMessage, type CareSummary, type CareTask, type Reply, type Sandbox, type Template, type Tip } from "./careTypes";
 
-type Tab = "desk" | "messages" | "tips" | "campaigns" | "templates" | "overview";
+type Tab = "desk" | "recalls" | "messages" | "tips" | "campaigns" | "templates" | "automation" | "overview";
 
 /** Care+: the follow-up desk, patient messages, clinician-approved health tips and campaigns, message templates. */
 export function CarePage({ can }: { can: (c: string) => boolean }) {
   const tabs: [Tab, string, boolean][] = [
     ["desk", "Care desk", can("care.desk")],
+    ["recalls", "Recalls", can("care.desk")],
     ["messages", "Messages", can("care.desk")],
     ["tips", "Health tips", can("care.tips.write")],
     ["campaigns", "Campaigns", can("care.manage")],
     ["templates", "Message templates", can("care.manage")],
+    ["automation", "Automation", can("care.manage")],
     ["overview", "Overview", can("care.manage")],
   ];
   const visible = tabs.filter((t) => t[2]);
@@ -42,6 +45,8 @@ export function CarePage({ can }: { can: (c: string) => boolean }) {
       </div>
       <div role="tabpanel" id={`cpanel-${tab}`} aria-labelledby={`ctab-${tab}`}>
         {tab === "desk" && <Desk />}
+        {tab === "recalls" && <Recalls />}
+        {tab === "automation" && <AutomationSettings />}
         {tab === "messages" && <Messages canRetry={can("care.manage")} simulation={sandbox?.simulation ?? false} />}
         {tab === "tips" && <Tips canApprove={can("care.tips.approve")} />}
         {tab === "campaigns" && <Campaigns />}

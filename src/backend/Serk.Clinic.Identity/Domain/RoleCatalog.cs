@@ -11,7 +11,7 @@ namespace Serk.Clinic.Identity.Domain;
 /// </summary>
 public static class RoleCatalog
 {
-    public const int Version = 6;
+    public const int Version = 7;
 
     public const string Receptionist = "Receptionist";
     public const string Nurse = "Nurse";
@@ -28,20 +28,20 @@ public static class RoleCatalog
         [
             Capabilities.PatientSearch, Capabilities.PatientRegister, Capabilities.PatientReadDemographics,
             Capabilities.AppointmentRead, Capabilities.AppointmentBook, Capabilities.AppointmentCheckIn,
-            Capabilities.CareContactWrite, Capabilities.CareDesk,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.NoticePost,
         ],
         [Nurse] =
         [
             Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.AllergyRead, Capabilities.AllergyWrite,
             Capabilities.AppointmentRead, Capabilities.AppointmentCheckIn, Capabilities.EncounterRead,
-            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.NoticePost,
         ],
         [Clinician] =
         [
             Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.AllergyRead, Capabilities.AllergyWrite,
             Capabilities.AppointmentRead, Capabilities.EncounterRead, Capabilities.NoteWrite, Capabilities.NoteSign,
             Capabilities.DocumentCreate, Capabilities.DocumentFinalize, Capabilities.DocumentRead,
-            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.CareTipsApprove,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.CareTipsApprove, Capabilities.NoticePost,
         ],
         [Dentist] =
         [
@@ -49,10 +49,10 @@ public static class RoleCatalog
             Capabilities.AppointmentRead, Capabilities.EncounterRead, Capabilities.NoteWrite, Capabilities.NoteSign,
             Capabilities.DocumentCreate, Capabilities.DocumentFinalize, Capabilities.DocumentRead,
             Capabilities.DentalChartRead, Capabilities.DentalChartWrite,
-            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.CareTipsApprove,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.CareTipsApprove, Capabilities.NoticePost,
         ],
         [ClinicAdmin] = [Capabilities.StaffAdmin, Capabilities.AuditRead, Capabilities.AppointmentRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AnalyticsRead, Capabilities.DataExport,
-            Capabilities.CareManage, Capabilities.CareTipsWrite, Capabilities.SocialManage],
+            Capabilities.CareManage, Capabilities.CareTipsWrite, Capabilities.SocialManage, Capabilities.NoticePost, Capabilities.NoticeManage],
         // Owner: every administrative, financial, configuration and data capability of the organisation (v4). No capability
         // to read or write charts in the app. Exception, deliberately: backup.manage (Clinical sensitivity) — the owner, as
         // data controller, may take an encrypted backup that contains clinical records, with a purpose, password
@@ -63,11 +63,11 @@ public static class RoleCatalog
             Capabilities.AppointmentRead, Capabilities.FinanceRead, Capabilities.FinanceApprove, Capabilities.FinanceClose, Capabilities.FinanceConfigure,
             Capabilities.OwnerReportsRead, Capabilities.OwnerSubscriptionsManage,
             Capabilities.DataExport, Capabilities.PatientDataExport, Capabilities.BackupManage,
-            Capabilities.CareManage, Capabilities.CareTipsWrite, Capabilities.SocialManage,
+            Capabilities.CareManage, Capabilities.CareTipsWrite, Capabilities.SocialManage, Capabilities.NoticePost, Capabilities.NoticeManage,
         ],
-        [Cashier] = [Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.InvoiceWrite, Capabilities.PaymentCollect],
+        [Cashier] = [Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.InvoiceWrite, Capabilities.PaymentCollect, Capabilities.NoticePost],
         // Finance supervisor: reconciles, approves and closes; no clinical capability and cannot collect cash (separation of duties).
-        [FinanceSupervisor] = [Capabilities.FinanceRead, Capabilities.FinanceApprove, Capabilities.FinanceClose, Capabilities.FinanceConfigure],
+        [FinanceSupervisor] = [Capabilities.FinanceRead, Capabilities.FinanceApprove, Capabilities.FinanceClose, Capabilities.FinanceConfigure, Capabilities.NoticePost],
     };
 
     public static IReadOnlySet<string> CapabilitiesFor(IEnumerable<string> roles)

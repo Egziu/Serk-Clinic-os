@@ -19,6 +19,7 @@ import { TeamPage } from "./pages/team/TeamPage";
 import { DataPage } from "./pages/data/DataPage";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { CarePage } from "./pages/care/CarePage";
+import { NoticeBoardPage } from "./pages/notices/NoticeBoardPage";
 import { SocialPage } from "./pages/social/SocialPage";
 import { Icon } from "./components/icons";
 import { applyAccent, applyThemePreference, loadThemePreference, type ThemePreference } from "./lib/theme";
@@ -26,7 +27,7 @@ import { applyAccent, applyThemePreference, loadThemePreference, type ThemePrefe
 export type Route =
   | { name: "home" } | { name: "reception" } | { name: "worklist" } | { name: "encounter"; id: string }
   | { name: "dashboard" } | { name: "settings" } | { name: "signature" } | { name: "admin" } | { name: "account" }
-  | { name: "billing" } | { name: "finance" } | { name: "owner" } | { name: "setup" } | { name: "team" } | { name: "data" } | { name: "care" } | { name: "social" };
+  | { name: "billing" } | { name: "finance" } | { name: "owner" } | { name: "setup" } | { name: "team" } | { name: "data" } | { name: "care" } | { name: "social" } | { name: "notices" };
 
 function parseRoute(): Route {
   const m = window.location.pathname.match(/^\/encounters\/([0-9a-f-]{36})$/i);
@@ -46,6 +47,7 @@ function parseRoute(): Route {
   if (window.location.pathname.startsWith("/data")) return { name: "data" };
   if (window.location.pathname.startsWith("/care")) return { name: "care" };
   if (window.location.pathname.startsWith("/social")) return { name: "social" };
+  if (window.location.pathname.startsWith("/notices")) return { name: "notices" };
   return { name: "home" };
 }
 
@@ -59,6 +61,17 @@ export function App() {
   const [theme, setTheme] = useState<ThemePreference>(loadThemePreference);
   const [facility, setFacility] = useState<FacilitySettings | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [unreadNotices, setUnreadNotices] = useState(0);
+  const [noticeTick, setNoticeTick] = useState(0);
+
+  // Unread notices badge: refreshed on load, on navigation and every two minutes.
+  useEffect(() => {
+    if (!session?.activeAffiliationId || session.mustChangePassword) return;
+    const load = () => api.get<{ count: number }>("/api/v1/notices/unread-count").then((r) => setUnreadNotices(r.data.count)).catch(() => undefined);
+    void load();
+    const t = window.setInterval(load, 120_000);
+    return () => window.clearInterval(t);
+  }, [session?.activeAffiliationId, session?.mustChangePassword, route, noticeTick]);
 
   // Ctrl/⌘+K opens the jump-to palette from anywhere.
   useEffect(() => {
@@ -177,6 +190,7 @@ export function App() {
     { route: { name: "data" }, label: "Data & backups", icon: "database", show: can("data.export") || can("data.export.patient") || can("backup.manage"), group: "Administration", keywords: "export csv json backup restore verify download" },
     { route: { name: "settings" }, label: "Settings", icon: "settings", show: can("branding.manage") || can("printers.manage"), group: "Administration", keywords: "colour printers paper automation" },
     { route: { name: "admin" }, label: "System admin", icon: "shield", show: session.isPlatformAdmin, group: "Administration", keywords: "super admin organisations" },
+    { route: { name: "notices" }, label: unreadNotices > 0 ? `Notice board (${unreadNotices} new)` : "Notice board", icon: "megaphone", show: session.activeAffiliationId !== null, group: "Me", keywords: "announcements news protocol team communication" },
     { route: { name: "account" }, label: "My account", icon: "key", show: true, group: "Me", keywords: "password" },
   ];
   const visibleNav = navItems.filter((n) => n.show);
@@ -243,6 +257,11 @@ export function App() {
               <span className="context">
                 Signed in as <strong>{session.displayName}</strong> ({[session.isPlatformAdmin ? "Super admin" : null, ...(affiliation?.roles ?? [])].filter(Boolean).join(", ")})
               </span>
+              {affiliation && (
+                <button className="btn bell" onClick={() => navigate({ name: "notices" })} aria-label={unreadNotices > 0 ? `Notice board, ${unreadNotices} new` : "Notice board"}>
+                  <Icon name="megaphone" size={16} />{unreadNotices > 0 && <span className="bell-count" aria-hidden="true">{unreadNotices}</span>}
+                </button>
+              )}
               <div className="theme-switch" role="group" aria-label="Colour theme">
                 {([["light", "sun", "Light theme"], ["dark", "moon", "Dark theme"], ["system", "monitor", "Use system theme"]] as const).map(([v, icon, label]) => (
                   <button key={v} type="button" aria-pressed={theme === v} aria-label={label} title={label} onClick={() => setTheme(v)}><Icon name={icon} size={16} /></button>
@@ -257,6 +276,7 @@ export function App() {
             {effectiveRoute.name === "encounter" && <EncounterPage id={effectiveRoute.id} session={session} onBack={() => navigate({ name: "worklist" })} />}
             {effectiveRoute.name === "dashboard" && <DashboardPage onNavigate={navigatePath} />}
             {effectiveRoute.name === "care" && <CarePage can={can} />}
+            {effectiveRoute.name === "notices" && <NoticeBoardPage canPost={can("notice.post")} canManage={can("notice.manage")} onChanged={() => setNoticeTick((k) => k + 1)} />}
             {effectiveRoute.name === "social" && <SocialPage />}
             {effectiveRoute.name === "setup" && <SetupPage onNavigate={navigatePath} onSettingsChanged={setFacility} />}
             {effectiveRoute.name === "team" && <TeamPage canSeeTeam={can("staff.admin")} canExport={can("data.export")} canManage={can("staff.manage")} currentUserId={session.userId} />}

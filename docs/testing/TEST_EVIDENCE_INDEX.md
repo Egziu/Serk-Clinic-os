@@ -36,3 +36,6 @@ CI workflow `.github/workflows/ci.yml` observed passing on GitHub (run #2).
 | 2026-11-15 | same | Real Telegram/SMS delivery | NOT RUN (sandbox only; needs owner approval, bot token, SMS gateway) | — |
 | 2026-11-15 | owner staff & whole-system check | verify.sh, full Playwright suite, restore rehearsal | 197 unit + 26 architecture + 132 integration + 21 web PASS; E2E 23/23; rehearsal PASS (57 tables) | `docs/evidence/system-check/` |
 | 2026-11-15 | same | Mutation check: shared-account guard disabled | ORGADMIN-003 failed on mutant, passed restored | session log |
+| 2026-11-15 | automation & notice board | tools/verify.sh incl. AutomationNoticeTests (AUTO-001, RECALL-001/002, NOTICE-001) | 208 unit + 26 architecture + 136 integration + 21 web passed, 0 failed | `docs/evidence/automation/verify-20261115T051405Z.log` |
+| 2026-11-15 | same | Full Playwright suite incl. automation-notices.spec.ts (owner settings, dentist follow-up from encounter, recalls list, must-acknowledge notice with receipts, patient-identifier refusal) | 26/26 passed; axe 0 serious/critical | `docs/evidence/automation/e2e-20261115T051405Z.log`, screenshots 20-22 |
+| 2026-11-15 | same | Regression proof: timestamp-cast fix reverted | RECALL-002 failed on the reverted code, passed restored | session log |

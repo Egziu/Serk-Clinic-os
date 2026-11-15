@@ -95,3 +95,64 @@ public class CareRulesTests
         Assert.Equal("Selam", SocialRules.FirstName("Selam Tesfaye Bekele"));
     }
 }
+
+public class AutomationRulesTests
+{
+    private static readonly TimeZoneInfo Addis = TimeZoneInfo.FindSystemTimeZoneById("Africa/Addis_Ababa");
+
+    [Fact]
+    public void Default_settings_are_valid_and_bad_ones_are_explained()
+    {
+        Assert.True(Serk.Clinic.Care.Domain.AutomationSettings.Default.Validate().IsSuccess);
+        var bad = Serk.Clinic.Care.Domain.AutomationSettings.Default with { ReminderLeadHours = 100, SameDayReminderEnabled = true, SameDayLeadHours = 6, QuietStart = new TimeOnly(9, 0), QuietEnd = new TimeOnly(9, 0) };
+        var r = bad.Validate();
+        Assert.False(r.IsSuccess);
+        Assert.True(r.Error!.Fields!.Keys.ToHashSet().IsSupersetOf(["reminderLeadHours", "quietStart"]));
+        var order = Serk.Clinic.Care.Domain.AutomationSettings.Default with { ReminderLeadHours = 3, SameDayReminderEnabled = true, SameDayLeadHours = 4 };
+        Assert.True(order.Validate().Error!.Fields!.ContainsKey("sameDayLeadHours"));
+    }
+
+    [Theory]
+    [InlineData(13, 30, 12, 0, 14, 0, 14, 0)]   // midday quiet window (lunch) -> moved to its end
+    [InlineData(11, 0, 12, 0, 14, 0, 11, 0)]    // outside it -> unchanged
+    [InlineData(22, 0, 21, 0, 7, 0, 7, 0)]      // window crossing midnight
+    public void Quiet_window_may_be_any_period(int h, int m, int qsh, int qsm, int qeh, int qem, int eh, int em)
+    {
+        var local = new DateTimeOffset(2026, 11, 16, h, m, 0, TimeSpan.FromHours(3));
+        var moved = TimeZoneInfo.ConvertTime(CareSchedule.RespectQuietHours(local.ToUniversalTime(), Addis, new TimeOnly(qsh, qsm), new TimeOnly(qeh, qem)), Addis);
+        Assert.Equal((eh, em), (moved.Hour, moved.Minute));
+    }
+
+    [Fact]
+    public void Same_day_and_configurable_reminders()
+    {
+        var now = new DateTimeOffset(2026, 11, 16, 5, 0, 0, TimeSpan.Zero);
+        var start = now.AddHours(6);
+        Assert.Equal(start.AddHours(-2), CareSchedule.SameDayDue(now, now.AddDays(-2), start, "Booked", 2));
+        Assert.Null(CareSchedule.SameDayDue(now, start.AddHours(-1), start, "Booked", 2)); // booked after the reminder time
+        Assert.Equal(start.AddDays(2).AddHours(-48), CareSchedule.ReminderDue(now, now.AddDays(-5), start.AddDays(2), "Booked", 48));
+        Assert.Equal(now.AddHours(-1).AddHours(6), CareSchedule.FollowUpDue(now, now.AddHours(-1), "CheckedIn", 6));
+    }
+
+    [Fact]
+    public void Recall_rules()
+    {
+        var today = new DateOnly(2026, 11, 16);
+        Assert.True(RecallRules.InviteDue(today, today.AddDays(14), 14));
+        Assert.False(RecallRules.InviteDue(today, today.AddDays(15), 14));
+        Assert.True(RecallRules.Overdue(today, today.AddDays(-15), 14));
+        Assert.False(RecallRules.Overdue(today, today.AddDays(-14), 14));
+        Assert.Equal(new DateOnly(2027, 5, 16), RecallRules.CheckupDate(today, 6));
+        Assert.True(RecallRules.BookingMatches(today.AddMonths(6), today.AddMonths(5)));
+        Assert.False(RecallRules.BookingMatches(today.AddMonths(6), today.AddDays(5)));
+    }
+
+    [Theory]
+    [InlineData("Please call MRN-000123 back", true)]
+    [InlineData("Her number is 0911 23 45 67", true)]
+    [InlineData("Call +251 911 234 567", true)]
+    [InlineData("Staff meeting Friday 08:00 in room 2", false)]
+    [InlineData("New sterilisation protocol from 1 Dec", false)]
+    public void Notices_refuse_obvious_patient_identifiers(string text, bool refused) =>
+        Assert.Equal(refused, Serk.Clinic.Care.Application.NoticeService.LooksLikePatientData(text));
+}

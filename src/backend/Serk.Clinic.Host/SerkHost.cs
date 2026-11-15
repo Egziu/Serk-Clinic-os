@@ -278,6 +278,7 @@ public static class SerkHost
         app.MapFinanceEndpoints();
         app.MapExportEndpoints();
         Serk.Clinic.Care.Api.CareEndpoints.MapCareEndpoints(app);
+        Serk.Clinic.Care.Api.CareAutomationEndpoints.MapCareAutomationEndpoints(app);
         Serk.Clinic.Platform.Backup.BackupEndpoints.MapBackupEndpoints(app);
         app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));
         app.MapFallbackToFile("index.html");

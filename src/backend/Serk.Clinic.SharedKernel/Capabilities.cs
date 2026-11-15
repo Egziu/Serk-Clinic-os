@@ -45,4 +45,6 @@ public static class Capabilities
     public const string CareTipsApprove = "care.tips.approve";
     public const string SocialManage = "marketing.social";
     public const string StaffManage = "staff.manage";
+    public const string NoticePost = "notice.post";
+    public const string NoticeManage = "notice.manage";
 }

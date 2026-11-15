@@ -13,6 +13,8 @@ public static class CareModule
         services.Configure<CareOptions>(config.GetSection("Care"));
         services.AddScoped<CareService>();
         services.AddScoped<SocialService>();
+        services.AddScoped<RecallService>();
+        services.AddScoped<NoticeService>();
         services.AddSingleton<SandboxCareMessenger>();
         // The bot token is part of the request path: this client must never log request URLs.
         services.AddHttpClient(CareChannels.TelegramClient, c => c.Timeout = TimeSpan.FromSeconds(10)).RemoveAllLoggers();

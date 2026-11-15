@@ -118,3 +118,39 @@ public static class CareEndpoints
     private static bool SimulationAllowed(IHostEnvironment env, CareOptions o) =>
         o.AllowSimulation && (env.IsDevelopment() || env.IsEnvironment("Testing") || env.IsEnvironment("Demo"));
 }
+
+public static class CareAutomationEndpoints
+{
+    public static void MapCareAutomationEndpoints(this IEndpointRouteBuilder app)
+    {
+        var g = app.MapGroup("/api/v1/care").WithTags("Care+");
+        g.MapGet("/automation", async (RecallService s, HttpResponse response, CancellationToken ct) =>
+        {
+            var dto = await s.GetSettingsAsync(ct);
+            response.Headers.ETag = ResultHttp.ETag(dto.Version);
+            return Results.Ok(dto);
+        }).RequireCapability(Capabilities.CareManage);
+        g.MapPut("/automation", async (AutomationSettingsDto body, HttpRequest http, HttpResponse response, RecallService s, CancellationToken ct) =>
+            (await s.UpdateSettingsAsync(body, ResultHttp.ParseIfMatchVersion(http), ct)).ToHttp(d =>
+            {
+                response.Headers.ETag = ResultHttp.ETag(d.Version);
+                return Results.Ok(d);
+            })).RequireCapability(Capabilities.CareManage);
+        g.MapGet("/recalls", async (string? filter, Guid? patientId, RecallService s, CancellationToken ct) => Results.Ok(await s.ListAsync(filter, patientId, ct)))
+            .RequireCapability(Capabilities.CareDesk);
+        g.MapPost("/recalls", async (CreateRecallRequest body, RecallService s, CancellationToken ct) =>
+            (await s.CreateAsync(body, ct)).ToHttp(id => Results.Created($"/api/v1/care/recalls/{id}", new { id }))).RequireCapability(Capabilities.CareDesk);
+        g.MapPost("/recalls/{id:guid}/close", async (Guid id, CloseRecallRequest body, RecallService s, CancellationToken ct) =>
+            (await s.CloseAsync(id, body, ct)).ToHttp(_ => Results.NoContent())).RequireCapability(Capabilities.CareDesk);
+
+        var n = app.MapGroup("/api/v1/notices").WithTags("Notice board");
+        n.MapGet("", async (bool? archived, NoticeService s, CancellationToken ct) => Results.Ok(await s.ListAsync(archived ?? false, ct))).RequireCapability();
+        n.MapGet("/unread-count", async (NoticeService s, CancellationToken ct) => Results.Ok(new { count = await s.UnreadCountAsync(ct) })).RequireCapability();
+        n.MapPost("", async (CreateNoticeRequest body, NoticeService s, CancellationToken ct) =>
+            (await s.CreateAsync(body, ct)).ToHttp(id => Results.Created($"/api/v1/notices/{id}", new { id }))).RequireCapability(Capabilities.NoticePost);
+        n.MapPost("/{id:guid}/read", async (Guid id, NoticeService s, CancellationToken ct) => (await s.MarkAsync(id, false, ct)).ToHttp(_ => Results.NoContent())).RequireCapability();
+        n.MapPost("/{id:guid}/acknowledge", async (Guid id, NoticeService s, CancellationToken ct) => (await s.MarkAsync(id, true, ct)).ToHttp(_ => Results.NoContent())).RequireCapability();
+        n.MapGet("/{id:guid}/receipts", async (Guid id, NoticeService s, CancellationToken ct) => (await s.ReceiptsAsync(id, ct)).ToHttp(Results.Ok)).RequireCapability();
+        n.MapPost("/{id:guid}/archive", async (Guid id, NoticeService s, CancellationToken ct) => (await s.ArchiveAsync(id, ct)).ToHttp(_ => Results.NoContent())).RequireCapability();
+    }
+}

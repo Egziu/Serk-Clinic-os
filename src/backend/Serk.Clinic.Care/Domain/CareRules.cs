@@ -9,11 +9,13 @@ public static class MessageKinds
 {
     public const string Confirmation = "Confirmation";
     public const string Reminder = "Reminder";
+    public const string SameDayReminder = "SameDayReminder";
+    public const string Recall = "Recall";
     public const string FollowUp = "FollowUp";
     public const string Rebook = "Rebook";
     public const string Tip = "Tip";
 
-    public static readonly IReadOnlyList<string> Templated = [Confirmation, Reminder, FollowUp, Rebook];
+    public static readonly IReadOnlyList<string> Templated = [Confirmation, Reminder, SameDayReminder, FollowUp, Rebook, Recall];
 }
 
 /// <summary>Values a template may use. Nothing clinical (no reason for visit, diagnosis, treatment or results).</summary>
@@ -33,6 +35,12 @@ public static partial class Templates
         [(MessageKinds.Reminder, "en")] = "Reminder from {clinic}: we look forward to seeing you tomorrow, {date} at {time}. If you cannot come please call {clinic_phone}. Reply STOP to opt out.",
         [(MessageKinds.FollowUp, "en")] = "Dear {first_name}, thank you for visiting {clinic}. How are you feeling today? Reply with a number from 1 (not well) to 5 (very well), or write to us. If you feel unwell, call {clinic_phone}. Reply STOP to opt out.",
         [(MessageKinds.Rebook, "en")] = "Dear {first_name}, we missed you at {clinic} today. Your care matters to us — call {clinic_phone} or reply to book a new time. Reply STOP to opt out.",
+        [(MessageKinds.SameDayReminder, "en")] = "{clinic}: see you today at {time}, {first_name}. Please arrive 10 minutes early. To change, call {clinic_phone}. Reply STOP to opt out.",
+        [(MessageKinds.Recall, "en")] = "Dear {first_name}, it is time for your next visit at {clinic} (due around {date}). Call {clinic_phone} or reply to book a convenient time. Reply STOP to opt out.",
+        [(MessageKinds.SameDayReminder, "am")] = "{clinic}፦ ዛሬ ከ{time} ጀምሮ እንጠብቅዎታለን፣ {first_name}። እባክዎ 10 ደቂቃ ቀደም ብለው ይምጡ። ለመቀየር {clinic_phone} ይደውሉ። መልእክት ለማቆም STOP ይመልሱ።",
+        [(MessageKinds.Recall, "am")] = "ውድ {first_name}፣ በ{clinic} የሚቀጥለው ምርመራዎ ጊዜ ደርሷል ({date_et} ዓ.ም. አካባቢ)። ቀጠሮ ለመያዝ {clinic_phone} ይደውሉ ወይም ይመልሱ። መልእክት ለማቆም STOP ይመልሱ።",
+        [(MessageKinds.SameDayReminder, "ti")] = "{clinic}፦ ሎሚ ሰዓት {time} ንጽበየኩም ኣለና፣ {first_name}። በጃኹም 10 ደቒቕ ቀዲምኩም ምጹ። ንምቕያር {clinic_phone} ደውሉ። መልእኽቲ ንምቁራጽ STOP ምለሱ።",
+        [(MessageKinds.Recall, "ti")] = "ክቡር/ቲ {first_name}፣ ኣብ {clinic} ዝቕጽል ምርመራኹም ግዜኡ በጺሑ ኣሎ ({date_et} ዓ.ም. ኣቢሉ)። ቆጸራ ንምሓዝ {clinic_phone} ደውሉ ወይ ምለሱ። መልእኽቲ ንምቁራጽ STOP ምለሱ።",
         [(MessageKinds.Confirmation, "am")] = "ሰላም {first_name}፣ በ{clinic} ቀጠሮዎ {date_et} ዓ.ም. ({date}) ከ{time} ጀምሮ ከ{clinician} ጋር ተይዟል። ለመቀየር {clinic_phone} ይደውሉ። መልእክት ለማቆም STOP ብለው ይመልሱ።",
         [(MessageKinds.Reminder, "am")] = "ከ{clinic} ማስታወሻ፦ ነገ {date_et} ዓ.ም. ከ{time} ጀምሮ እንጠብቅዎታለን። መምጣት ካልቻሉ {clinic_phone} ይደውሉ። መልእክት ለማቆም STOP ይመልሱ።",
         [(MessageKinds.FollowUp, "am")] = "ውድ {first_name}፣ {clinic}ን ስለጎበኙ እናመሰግናለን። ዛሬ እንዴት ነዎት? ከ1 (ጥሩ አይደለሁም) እስከ 5 (በጣም ጥሩ) ቁጥር ይመልሱ ወይም ይጻፉልን። ከተሰማዎት {clinic_phone} ይደውሉ።",
@@ -95,7 +103,58 @@ public static partial class Templates
     private static partial Regex PlaceholderPattern();
 }
 
-/// <summary>When automated patient messages are due (facility-local time; never at night).</summary>
+/// <summary>Owner-adjustable automation settings for one facility (defaults when never changed).</summary>
+public sealed record AutomationSettings(
+    bool ConfirmationsEnabled,
+    bool ReminderEnabled,
+    int ReminderLeadHours,
+    bool SameDayReminderEnabled,
+    int SameDayLeadHours,
+    bool FollowUpEnabled,
+    int FollowUpDelayHours,
+    bool RebookEnabled,
+    TimeOnly QuietStart,
+    TimeOnly QuietEnd,
+    int RecallInviteLeadDays,
+    int RecallOverdueDays,
+    bool AutoCheckupRecallEnabled,
+    int AutoCheckupMonths,
+    bool StaffNoticesEnabled)
+{
+    public static AutomationSettings Default { get; } = new(true, true, 24, false, 2, true, 24, true, new TimeOnly(20, 0), new TimeOnly(8, 0), 14, 14, true, 6, true);
+
+    public Result<AutomationSettings> Validate()
+    {
+        var e = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        void Range(string field, int v, int min, int max)
+        {
+            if (v < min || v > max)
+            {
+                e[field] = [$"Between {min} and {max}."];
+            }
+        }
+
+        Range("reminderLeadHours", ReminderLeadHours, 2, 72);
+        Range("sameDayLeadHours", SameDayLeadHours, 1, 6);
+        Range("followUpDelayHours", FollowUpDelayHours, 2, 96);
+        Range("recallInviteLeadDays", RecallInviteLeadDays, 1, 60);
+        Range("recallOverdueDays", RecallOverdueDays, 1, 90);
+        Range("autoCheckupMonths", AutoCheckupMonths, 3, 24);
+        if (QuietStart == QuietEnd)
+        {
+            e["quietStart"] = ["Quiet hours need a different start and end."];
+        }
+
+        if (SameDayReminderEnabled && ReminderEnabled && SameDayLeadHours >= ReminderLeadHours)
+        {
+            e["sameDayLeadHours"] = ["The same-day reminder must come after the main reminder."];
+        }
+
+        return e.Count == 0 ? this : Error.Validation("invalid_automation", "Some automation settings need attention.", e);
+    }
+}
+
+/// <summary>When automated patient messages are due (facility-local time; never during quiet hours).</summary>
 public static class CareSchedule
 {
     public static readonly TimeOnly QuietEnd = new(8, 0);
@@ -103,21 +162,42 @@ public static class CareSchedule
     public static readonly TimeSpan ReminderLead = TimeSpan.FromHours(24);
     public static readonly TimeSpan FollowUpDelay = TimeSpan.FromHours(24);
 
-    /// <summary>Moves a send time out of the 20:00–08:00 quiet hours to the next 08:00 (facility-local).</summary>
-    public static DateTimeOffset RespectQuietHours(DateTimeOffset utc, TimeZoneInfo zone)
+    /// <summary>Moves a send time out of the quiet window [start, end) — which may cross midnight — to its end (facility-local).</summary>
+    public static DateTimeOffset RespectQuietHours(DateTimeOffset utc, TimeZoneInfo zone, TimeOnly quietStart, TimeOnly quietEnd)
     {
         var local = TimeZoneInfo.ConvertTime(utc, zone);
         var t = TimeOnly.FromDateTime(local.DateTime);
-        if (t >= QuietEnd && t < QuietStart)
+        var crossesMidnight = quietStart > quietEnd;
+        var quiet = crossesMidnight ? t >= quietStart || t < quietEnd : t >= quietStart && t < quietEnd;
+        if (!quiet)
         {
             return utc;
         }
 
         var day = DateOnly.FromDateTime(local.DateTime);
-        var next = t >= QuietStart ? day.AddDays(1) : day;
-        var at = next.ToDateTime(QuietEnd, DateTimeKind.Unspecified);
+        var next = crossesMidnight && t >= quietStart ? day.AddDays(1) : day;
+        var at = next.ToDateTime(quietEnd, DateTimeKind.Unspecified);
         return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(at, zone), TimeSpan.Zero);
     }
+
+    /// <summary>Same-day reminder a few hours before; only for appointments booked before that day's reminder time.</summary>
+    public static DateTimeOffset? SameDayDue(DateTimeOffset now, DateTimeOffset bookedAt, DateTimeOffset startsAt, string status, int leadHours)
+    {
+        var due = startsAt.AddHours(-leadHours);
+        return status == "Booked" && bookedAt < due && startsAt > now.AddMinutes(30) ? due : null;
+    }
+
+    public static DateTimeOffset? ReminderDue(DateTimeOffset now, DateTimeOffset bookedAt, DateTimeOffset startsAt, string status, int leadHours)
+    {
+        var lead = TimeSpan.FromHours(leadHours);
+        return status != "Booked" || startsAt - bookedAt < lead || startsAt < now.AddHours(Math.Min(4, leadHours)) ? null : startsAt - lead;
+    }
+
+    public static DateTimeOffset? FollowUpDue(DateTimeOffset now, DateTimeOffset? checkedInAt, string status, int delayHours) =>
+        checkedInAt is { } c && status is "CheckedIn" or "Completed" && now - c < TimeSpan.FromHours(delayHours) + TimeSpan.FromDays(2) ? c.AddHours(delayHours) : null;
+
+    /// <summary>Moves a send time out of the 20:00–08:00 quiet hours to the next 08:00 (facility-local).</summary>
+    public static DateTimeOffset RespectQuietHours(DateTimeOffset utc, TimeZoneInfo zone) => RespectQuietHours(utc, zone, QuietStart, QuietEnd);
 
     /// <summary>Confirmation: right away for future appointments booked recently.</summary>
     public static DateTimeOffset? ConfirmationDue(DateTimeOffset now, DateTimeOffset bookedAt, DateTimeOffset startsAt, string status) =>
@@ -141,6 +221,21 @@ public static class CareSchedule
     /// <summary>Re-booking invitation after a no-show (appointment within the last 3 days).</summary>
     public static DateTimeOffset? RebookDue(DateTimeOffset now, DateTimeOffset startsAt, string status) =>
         status == "NoShow" && now - startsAt < TimeSpan.FromDays(3) ? now : null;
+}
+
+/// <summary>Dental recalls: when to invite, when a recall is overdue, and the automatic check-up date.</summary>
+public static class RecallRules
+{
+    public static readonly IReadOnlyList<string> Kinds = ["CheckUp", "Review", "Cleaning", "Treatment", "Other"];
+
+    public static bool InviteDue(DateOnly today, DateOnly dueOn, int leadDays) => today >= dueOn.AddDays(-leadDays);
+
+    public static bool Overdue(DateOnly today, DateOnly dueOn, int overdueDays) => today > dueOn.AddDays(overdueDays);
+
+    public static DateOnly CheckupDate(DateOnly visit, int months) => visit.AddMonths(months);
+
+    /// <summary>A future appointment counts as booking the recall when it is no more than 60 days before the due date.</summary>
+    public static bool BookingMatches(DateOnly dueOn, DateOnly appointmentDay) => appointmentDay >= dueOn.AddDays(-60);
 }
 
 public sealed record ReplyTriage(int? Rating, bool OptOut, bool NeedsAttention, string Reason);
