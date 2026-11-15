@@ -259,13 +259,88 @@ public class OwnerToolsTests(SerkApiFixture f)
         var big = await owner.UploadFormAsync("/api/v1/backups/verify", junk, "big.serkbak", new Dictionary<string, string> { ["passphrase"] = Passphrase });
         Assert.Equal(HttpStatusCode.OK, big.StatusCode);
         Assert.False((await ApiClient.Body(big)).GetProperty("valid").GetBoolean());
-        var bigElsewhere = await owner.UploadAsync("/api/v1/facility/branding/logo", junk, "big.png", "image/png");
-        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, bigElsewhere.StatusCode);
+        var notAnImage = await owner.UploadAsync("/api/v1/facility/branding/logo", junk, "big.png", "image/png");
+        Assert.Equal(HttpStatusCode.BadRequest, notAnImage.StatusCode); // within the 20 MB image limit, rejected as not an image
+        var tooBig = await owner.UploadAsync("/api/v1/facility/branding/logo", new byte[21 * 1024 * 1024], "huge.png", "image/png");
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, tooBig.StatusCode);
 
         var history = (await owner.GetJsonAsync("/api/v1/backups")).Items().Select(h => h.GetProperty("action").GetString()).ToList();
         Assert.Contains("Created", history);
         Assert.Contains("Verified", history);
         Assert.Contains("VerifyFailed", history);
+    }
+
+    [Fact(DisplayName = "UPLOAD-001 a high-resolution logo of several megabytes (up to 20 MB) is accepted and served intact")]
+    public async Task Large_logo_upload()
+    {
+        var png = LargePng(2000, 1500); // ~9 MB, uncompressed deflate blocks of random pixels
+        Assert.InRange(png.Length, 5 * 1024 * 1024, 20 * 1024 * 1024);
+        using var owner = await f.LoginAsync(DemoData.Owner);
+        var r = await owner.UploadAsync("/api/v1/facility/branding/logo", png, "logo.png", "image/png");
+        Assert.True(r.StatusCode == HttpStatusCode.OK || r.StatusCode == HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
+        var asset = await ApiClient.Body(r);
+        Assert.Equal(2000, asset.GetProperty("width").GetInt32());
+        var served = await owner.GetAsync($"/api/v1/branding-assets/{asset.GetProperty("id").GetGuid()}/content");
+        Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        Assert.Equal(asset.GetProperty("sha256").GetString(), Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(await served.Content.ReadAsByteArrayAsync())));
+    }
+
+    private static byte[] LargePng(int width, int height)
+    {
+        var raw = new byte[height * (1 + width * 3)];
+        var rnd = new Random(42);
+        for (var y = 0; y < height; y++)
+        {
+            var row = y * (1 + width * 3);
+            raw[row] = 0; // filter: none
+            rnd.NextBytes(raw.AsSpan(row + 1, width * 3));
+        }
+
+        using var idat = new MemoryStream();
+        using (var z = new ZLibStream(idat, CompressionLevel.NoCompression, true))
+        {
+            z.Write(raw);
+        }
+
+        using var png = new MemoryStream();
+        png.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        var ihdr = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(ihdr, width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4), height);
+        ihdr[8] = 8; // bit depth
+        ihdr[9] = 2; // RGB
+        Chunk(png, "IHDR", ihdr);
+        Chunk(png, "IDAT", idat.ToArray());
+        Chunk(png, "IEND", []);
+        return png.ToArray();
+    }
+
+    private static void Chunk(Stream s, string type, byte[] data)
+    {
+        var len = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(len, data.Length);
+        s.Write(len);
+        var typeBytes = Encoding.ASCII.GetBytes(type);
+        s.Write(typeBytes);
+        s.Write(data);
+        var crc = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(crc, Crc32([.. typeBytes, .. data]));
+        s.Write(crc);
+    }
+
+    private static uint Crc32(byte[] bytes)
+    {
+        var c = 0xFFFFFFFFu;
+        foreach (var b in bytes)
+        {
+            c ^= b;
+            for (var k = 0; k < 8; k++)
+            {
+                c = (c & 1) != 0 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+            }
+        }
+
+        return ~c;
     }
 
     [Fact(DisplayName = "INSIGHT-001 insights are explained and limited to the caller's permissions")]

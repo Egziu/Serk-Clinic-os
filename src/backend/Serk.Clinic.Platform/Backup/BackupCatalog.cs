@@ -43,6 +43,8 @@ public static class BackupCatalog
               FROM finance.owner_subscriptions WHERE tenant_id = @t) x
             """), // verification challenge hashes are short-lived secrets and are never exported
         Rls("finance.delivery_attempts"),
+        Rls("care.contact_preferences"), Rls("care.consent_events"), Rls("care.message_templates"), Rls("care.messages"), Rls("care.replies"),
+        Rls("care.tasks"), Rls("care.health_tips"), Rls("care.campaigns"), Rls("care.social_posts"), Rls("care.social_metrics"),
         Rls("audit.audit_events"),
         Rls("platform.export_log"), Rls("platform.backup_log"),
     ];
@@ -55,6 +57,8 @@ public static class BackupCatalog
         ["platform.schema_migrations"] = "Database structure, not organisation data (the backup records the applied list).",
         ["audit.security_events"] = "Security telemetry kept by the platform operator (may relate to unauthenticated requests).",
         ["identity.sessions"] = "Session tokens are secrets and expire within hours.",
+        ["care.telegram_links"] = "One-time Telegram link codes (hashed, 30-minute lifetime); patients can be re-linked.",
+        ["care.telegram_chats"] = "Telegram chat bindings used only by the bot webhook; the chat id is also kept in care.contact_preferences.",
         ["identity.platform_admins"] = "Platform-wide super administrators, not part of any one organisation.",
     };
 }

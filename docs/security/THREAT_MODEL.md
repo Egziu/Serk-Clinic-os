@@ -65,6 +65,18 @@ PDFs and their hashes; audit trail; staff credentials and sessions; tenant bound
 | Spreadsheet formula injection | Patient name `=HYPERLINK(...)` opened in Excel | Cells starting with = + - @ TAB CR are prefixed with an apostrophe | TabularWriterTests | — |
 | Insight leaks patient data | Insight text names a patient | Insights read PHI-free fact views only; names only of staff (cash variance) for finance readers | INSIGHT-001, InsightRulesTests | — |
 
+## Care+ messaging and social media (added 2026-11-15, ADR-0016)
+
+| Threat | Example | Controls implemented | Evidence | Residual / open |
+|---|---|---|---|---|
+| Messaging without consent | Reminders to a patient who declined | Consent per purpose with method + append-only history; re-checked at send; withdrawal cancels queue; STOP opts out | CARE-001/002/003 | Consent wording not yet legally reviewed |
+| Health data in texts | Template inserts visit reason | Placeholder whitelist; validation rejects unknown placeholders | CareRulesTests, CARE-005 | First name + time visible to phone holder |
+| Forged webhook / chat hijack | Attacker posts fake replies or links a chat | Webhook off unless Telegram enabled; constant-time secret check; one-time hashed 8-char code, 30-min expiry, single use; lookups via SECURITY DEFINER functions only | CARE-001, CARE-005 | Code guessing bounded by rate limit + expiry |
+| Cross-tenant leakage | Webhook resolves another clinic's patient | Chat→tenant mapping only via definer function; all care tables under forced RLS; automation runs per tenant | CARE-001 (other tenant 404) | — |
+| Unsafe automated advice | Bot replies to "bleeding" with advice | Bot only acknowledges and points to emergency care; tasks for humans | CareRulesTests | Desk staffing is an operational control |
+| Mass messaging abuse | Campaign spam | care.manage only; approved tips only; consent-filtered audience; quiet hours | CARE-004 | No per-campaign size cap yet |
+| Patient images on social media | Post with patient photo without consent | DB CHECK requires media-consent reference when a post shows a patient | SOCIAL-001 | Reference is not verified against a document |
+
 ## Attackers considered
 Internet users (anonymous verify endpoint, login), curious insiders (search, duplicate probe — now audited), rogue tenant
 (tenant B staff), compromised workstation (session revocation), malicious tools/plugins (no PHI to tools; synthetic data

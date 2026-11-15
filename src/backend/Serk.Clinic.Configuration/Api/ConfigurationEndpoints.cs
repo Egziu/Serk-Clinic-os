@@ -97,7 +97,7 @@ public static class ConfigurationEndpoints
 
         if (file.Length > ImageInspector.MaxBytes)
         {
-            return Error.Validation("file_too_large", $"Images must be at most {ImageInspector.MaxBytes / 1024} KB.");
+            return Error.Validation("file_too_large", $"Images must be at most {ImageInspector.MaxBytes / (1024 * 1024)} MB.");
         }
 
         using var ms = new MemoryStream();

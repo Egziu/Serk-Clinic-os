@@ -59,6 +59,14 @@ Owner tools (2026-11-14, ADR-0015): clinic profile (name, motto, address, contac
   with controls (owner backups contain clinical records — owner/legal decision advised), 6 Medium (5 fixed, 1 accepted),
   5 Low fixed (docs/reviews/2026-11-14-review-round-4-owner-tools.md). PDF rendering made thread-safe (fixes a pre-existing
   intermittent preview/final difference). In-app restore and production backups NOT IMPLEMENTED.
+Care+ and social media (2026-11-15, ADR-0016): per-purpose messaging consent with history; automatic booking
+  confirmation, 24 h reminder, after-visit follow-up and missed-visit re-booking (quiet hours, once only, no clinical
+  detail); replies triaged into care tasks (urgent when worrying words/low rating; written outcome required; STOP opts out);
+  health tips with four-eyes clinician approval and facility-scoped campaigns; editable EN/AM/TI templates; social media
+  planner (patient posts need consent reference) and results tracker; branding uploads up to 20 MB.
+  Channels: SANDBOX ONLY (Telegram connector built but off; no SMS gateway) — real sending NOT RUN, needs owner approval.
+  Review round 5: 4 High + 5 Medium fixed with tests, 1 Medium partly (clinical word-list review), 1 Medium open (image
+  downscaling). Amharic/Tigrinya texts need native and clinical review (HAZ-039..042 pending).
 Known blockers / risks (ranked):
   0. Super-admin two-person rule not implemented (ACCESS-014, review round 3 F1)
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed

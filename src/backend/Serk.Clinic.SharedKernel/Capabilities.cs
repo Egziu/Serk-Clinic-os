@@ -38,4 +38,10 @@ public static class Capabilities
     public const string DataExport = "data.export";
     public const string PatientDataExport = "data.export.patient";
     public const string BackupManage = "backup.manage";
+    public const string CareContactWrite = "care.contact.write";
+    public const string CareDesk = "care.desk";
+    public const string CareManage = "care.manage";
+    public const string CareTipsWrite = "care.tips.write";
+    public const string CareTipsApprove = "care.tips.approve";
+    public const string SocialManage = "marketing.social";
 }

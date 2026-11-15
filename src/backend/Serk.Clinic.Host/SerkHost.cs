@@ -8,6 +8,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using Serk.Clinic.Analytics;
 using Serk.Clinic.Analytics.Api;
+using Serk.Clinic.Care;
 using Serk.Clinic.Clinical;
 using Serk.Clinic.Clinical.Api;
 using Serk.Clinic.Configuration;
@@ -68,7 +69,7 @@ public static class SerkHost
             k.AddServerHeader = false;
             k.Limits.MaxRequestBodySize = Serk.Clinic.Platform.Backup.BackupService.MaxUploadBytes; // per request lowered to MaxRequestBodyBytes by RequestSizeLimitMiddleware
         });
-        builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = MaxRequestBodyBytes);
+        builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = Serk.Clinic.Platform.Backup.BackupService.MaxUploadBytes); // real per-route cap: RequestSizeLimitMiddleware
 
         // Resolved lazily so configuration overrides applied at Build() (hosting, tests) are honoured. Fail fast at startup below.
         builder.Services.AddSingleton(sp =>
@@ -97,7 +98,7 @@ public static class SerkHost
         builder.Services.AddSingleton<IObjectStore, FileSystemObjectStore>();
         builder.Services.Configure<DocumentOptions>(config.GetSection("Documents"));
 
-        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule().AddConfigurationModule().AddAnalyticsModule().AddFinanceModule();
+        builder.Services.AddIdentityModule().AddPatientsModule().AddClinicalModule().AddSchedulingModule().AddDocumentsModule().AddDentalModule().AddConfigurationModule().AddAnalyticsModule().AddFinanceModule().AddCareModule(config);
         builder.Services.AddOptions<Serk.Clinic.Scheduling.Application.NoShowOptions>().Bind(config.GetSection("Scheduling:NoShow"))
             .Validate(o => o.Grace >= Serk.Clinic.Scheduling.Application.NoShowOptions.MinimumGrace && o.Interval >= TimeSpan.FromSeconds(10), "Scheduling:NoShow:Grace must be at least 30 minutes and Interval at least 10 seconds.")
             .ValidateOnStart();
@@ -121,6 +122,9 @@ public static class SerkHost
             o.AddPolicy("data-heavy", ctx => RateLimitPartition.GetFixedWindowLimiter(
                 DataHeavyPartition(ctx),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = config.GetValue("RateLimits:ExportsPerMinute", 20), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            // Telegram delivers all clinics' updates from a few addresses: one generous shared bucket for the webhook.
+            o.AddPolicy("telegram-webhook", _ => RateLimitPartition.GetFixedWindowLimiter("telegram",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 1200, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             o.AddPolicy("verify", ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -272,6 +276,7 @@ public static class SerkHost
         app.MapAnalyticsEndpoints();
         app.MapFinanceEndpoints();
         app.MapExportEndpoints();
+        Serk.Clinic.Care.Api.CareEndpoints.MapCareEndpoints(app);
         Serk.Clinic.Platform.Backup.BackupEndpoints.MapBackupEndpoints(app);
         app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));
         app.MapFallbackToFile("index.html");

@@ -60,6 +60,12 @@ public static class CapabilityCatalog
         new(Capabilities.AuditRead, "Administration", "Read audit trail", "Read the organisation's audit records.", CapabilitySensitivity.Administrative),
         new(Capabilities.DataExport, "Data", "Export operational data", "Download finance, schedule-capacity, staff and audit data as CSV or JSON (every export is logged).", CapabilitySensitivity.Administrative),
         new(Capabilities.PatientDataExport, "Data", "Export patient data", "Download patient-identifying data (register, appointments, invoices by patient). Needs a stated purpose and password confirmation; logged.", CapabilitySensitivity.PatientData),
+        new(Capabilities.CareContactWrite, "Care+", "Record contact consent", "Record a patient's phone, Telegram link, language and consent for reminders and health tips.", CapabilitySensitivity.PatientData),
+        new(Capabilities.CareDesk, "Care+", "Work the care desk", "See follow-up messages and patient replies, call patients back and close care tasks.", CapabilitySensitivity.PatientData),
+        new(Capabilities.CareManage, "Care+", "Manage patient messaging", "Edit message templates, schedule health-tip campaigns, retry failed messages and see delivery statistics.", CapabilitySensitivity.Administrative),
+        new(Capabilities.CareTipsWrite, "Care+", "Write health tips", "Draft health tips for patients (they need clinician approval before sending).", CapabilitySensitivity.Standard),
+        new(Capabilities.CareTipsApprove, "Care+", "Approve health tips", "Approve another person's health tip as clinically appropriate (never one's own).", CapabilitySensitivity.Clinical),
+        new(Capabilities.SocialManage, "Marketing", "Plan and track social media", "Plan posts and record social media results. Posts showing patients need recorded written consent.", CapabilitySensitivity.Standard),
         new(Capabilities.BackupManage, "Data", "Create and verify backups", "Create and verify the organisation's encrypted backup. A backup contains EVERY record, including clinical notes and signature images: needs a stated purpose and password confirmation; logged.", CapabilitySensitivity.Clinical),
     ];
 

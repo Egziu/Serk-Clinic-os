@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Serk.Clinic.Configuration\Serk.Clinic.Configuration.csproj" />
     <ProjectReference Include="..\Serk.Clinic.Analytics\Serk.Clinic.Analytics.csproj" />
     <ProjectReference Include="..\Serk.Clinic.Finance\Serk.Clinic.Finance.csproj" />
+    <ProjectReference Include="..\Serk.Clinic.Care\Serk.Clinic.Care.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\..\database\migrations\*.sql" Link="migrations\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

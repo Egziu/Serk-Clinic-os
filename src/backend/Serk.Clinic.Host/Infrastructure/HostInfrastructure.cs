@@ -32,10 +32,7 @@ public sealed class RequestSizeLimitMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext http)
     {
-        // One documented exception: verifying an organisation backup uploads the (encrypted) backup file itself.
-        var limit = HttpMethods.IsPost(http.Request.Method) && http.Request.Path.Equals(Serk.Clinic.Platform.Backup.BackupService.VerifyPath, StringComparison.OrdinalIgnoreCase)
-            ? Serk.Clinic.Platform.Backup.BackupService.MaxUploadBytes
-            : SerkHost.MaxRequestBodyBytes;
+        var limit = LimitFor(http.Request);
         if (http.Request.ContentLength > limit)
         {
             http.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
@@ -52,6 +49,29 @@ public sealed class RequestSizeLimitMiddleware(RequestDelegate next)
         // Chunked bodies have no Content-Length: cap the bytes actually read.
         http.Request.Body = new LimitedReadStream(http.Request.Body, limit);
         await next(http);
+    }
+
+    /// <summary>
+    /// Documented exceptions to the 1 MB default: image uploads (logo, stamp, signature: 20 MB file + multipart overhead)
+    /// and backup verification (the encrypted backup file itself).
+    /// </summary>
+    public static long LimitFor(HttpRequest request)
+    {
+        if (!HttpMethods.IsPost(request.Method))
+        {
+            return SerkHost.MaxRequestBodyBytes;
+        }
+
+        var path = request.Path;
+        if (path.Equals(Serk.Clinic.Platform.Backup.BackupService.VerifyPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return Serk.Clinic.Platform.Backup.BackupService.MaxUploadBytes;
+        }
+
+        return path.StartsWithSegments("/api/v1/facility/branding", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/api/v1/me/signature", StringComparison.OrdinalIgnoreCase)
+            ? Serk.Clinic.Configuration.Domain.ImageInspector.MaxBytes + (256 * 1024)
+            : SerkHost.MaxRequestBodyBytes;
     }
 
     private sealed class LimitedReadStream(Stream inner, long limit) : Stream

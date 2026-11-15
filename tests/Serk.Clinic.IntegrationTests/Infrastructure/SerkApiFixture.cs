@@ -68,6 +68,8 @@ public sealed class SerkApiFixture : IAsyncLifetime
             b.UseSetting("Database:MigrateOnStartup", "false");
             b.UseSetting("Seed:Demo", "false");
             b.UseSetting("Outbox:Enabled", "false");
+            b.UseSetting("Care:AutomationEnabled", "false");
+            b.UseSetting("Care:AllowSimulation", "true");
             b.UseSetting("ObjectStore:RootPath", ObjectRoot);
             b.UseSetting("RateLimits:LoginPerMinute", "100000");
             b.UseSetting("Documents:PublicBaseUrl", "https://verify.test");

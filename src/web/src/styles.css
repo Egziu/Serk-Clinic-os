@@ -383,3 +383,19 @@ table.matrix .group-row th { background: var(--surface-sunken); text-align: left
 .strength-3 span { width: 75%; }
 .strength-4 span { width: 100%; }
 .filter-field { max-width: 420px; }
+
+/* ---------- Care+ ---------- */
+.care-contact { border-top: 3px solid var(--accent); }
+.consent-box { border: 1px solid var(--rule); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin: var(--space-2) 0 var(--space-3); }
+.consent-box legend { font-weight: 700; padding: 0 6px; }
+.care-task { border-left: 4px solid var(--info); }
+.care-task-urgent { border-left-color: var(--danger); }
+.care-task blockquote, .tip-card blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid var(--rule); color: var(--ink-muted); font-style: italic; }
+.message-preview { font-size: 0.85rem; color: var(--ink-muted); max-width: 46ch; white-space: pre-wrap; }
+.rating { color: #b7791f; letter-spacing: 1px; margin-right: 6px; }
+.figure-grid dt { font-size: 0.78rem; color: var(--ink-muted); }
+.figure-grid dd { margin: 0 0 6px; font-weight: 700; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px var(--space-4); margin: var(--space-2) 0 0; }
+.metric-grid dt { font-size: 0.78rem; color: var(--ink-muted); }
+.metric-grid dd { margin: 0 0 6px; font-weight: 700; font-size: 1.05rem; }
+.chart-narrow { max-width: 560px; }

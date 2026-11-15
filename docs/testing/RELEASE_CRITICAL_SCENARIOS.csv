@@ -99,3 +99,11 @@ BACKUP-003,Operations,Whole-database dump restores into a fresh database with id
 BACKUP-004,Operations,Restore an organisation backup into a fresh environment,Yes,Rehearsal,NOT IMPLEMENTED (OPS-003b),docs/operations/BACKUP_RESTORE.md
 BACKUP-005,Operations,Continuous production backups (PITR) and off-site copies,Yes,Operations evidence,NOT IMPLEMENTED,docs/operations/BACKUP_RESTORE.md
 INSIGHT-001,Analytics,Insights explain their rule and are limited to the caller's permissions,No,Unit + Integration,PASS (automated),InsightRulesTests; OwnerToolsTests INSIGHT-001
+UPLOAD-001,Configuration,Branding images up to 20 MB accepted and served intact; larger refused (413); other routes keep 1 MB,No,Integration,PASS (automated),OwnerToolsTests UPLOAD-001; BACKUP-002
+CARE-001,Care+,Consent recorded per purpose with method and history; channel rules; other tenants and roles refused; Telegram code stored hashed,Yes,Integration + E2E,PASS (automated),CareTests CARE-001; e2e/care.spec.ts
+CARE-002,Care+,Confirmation/reminder only with consent; exactly once; no clinical detail; withdrawal cancels queued messages,Yes,Integration,PASS (automated),CareTests CARE-002
+CARE-003,Care+,Follow-up after visit; worrying reply creates urgent task needing written outcome; STOP opts out; replies immutable,Yes,Integration,PASS (automated),CareTests CARE-003
+CARE-004,Care+,Health tips need another clinician's approval; approved text immutable; campaigns reach only tip-consenting patients,Yes,Integration + E2E,PASS (automated),CareTests CARE-004; e2e/care.spec.ts
+CARE-005,Care+,Telegram webhook closed unless configured; templates reject clinical placeholders; templates restricted to managers,Yes,Integration,PASS (automated),CareTests CARE-005
+CARE-006,Care+,Real Telegram/SMS delivery to a phone,Yes,Manual + provider evidence,NOT RUN (sandbox only; owner approval and credentials required),docs/operations/CARE_MESSAGING.md
+SOCIAL-001,Care+,Social posts showing patients need consent reference; results tracked with engagement; permissions,No,Integration + E2E,PASS (automated),CareTests SOCIAL-001; e2e/care.spec.ts

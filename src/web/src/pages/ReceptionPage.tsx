@@ -6,6 +6,7 @@ import type { Appointment, DuplicateCandidate, PatientSummary, Practitioner, Reg
 import { ErrorAlert, Field, StatusBadge } from "../components/common";
 import { facilityLocalToUtcIso, formatDualDate, formatTime, localIsoDate } from "../lib/format";
 import { t } from "../i18n";
+import { CareContactPanel } from "./care/CareContactPanel";
 
 const emptyForm = { givenName: "", fatherName: "", grandfatherName: "", sex: "", birthDate: "", birthDateIsEstimated: false, phone: "", nationalId: "" };
 
@@ -20,6 +21,7 @@ export function ReceptionPage({ session }: { session: Session }) {
       <div className="grid-2">
         <div>
           <PatientSearch onSelect={setSelected} selected={selected} />
+          {selected && can("care.contact.write") && <CareContactPanel key={selected.id} patientId={selected.id} patientName={selected.displayName} />}
           {can("patient.register") && <RegisterPatient onRegistered={setSelected} />}
         </div>
         <div>

@@ -31,3 +31,6 @@ CI workflow `.github/workflows/ci.yml` observed passing on GitHub (run #2).
 | 2026-11-14 | same | Whole-database restore rehearsal (tools/backup-rehearsal.sh) | identical row counts (42 tables), migrations, balanced ledger, triggers and RLS preserved, audit immutable | `docs/evidence/backups/` |
 | 2026-11-14 | same | Rendering determinism under parallel load | before: 3/30 runs failed on previous commit; after serialising rendering: 0/40 | session log |
 
+| 2026-11-15 | care+ commit | tools/verify.sh incl. CareTests (CARE-001..006, SOCIAL-001), UPLOAD-001 | 197 unit + 26 architecture + 129 integration passed, 0 failed | `docs/evidence/care/verify-20261115T031707Z.log` |
+| 2026-11-15 | same | Playwright E2E incl. care.spec.ts (consent + Telegram code, tip four-eyes, campaign, templates, social planner and results) | 22/22 passed; axe 0 serious/critical | `docs/evidence/care/e2e-20261115T031707Z.log`, screenshots 16-18 |
+| 2026-11-15 | same | Real Telegram/SMS delivery | NOT RUN (sandbox only; needs owner approval, bot token, SMS gateway) | — |

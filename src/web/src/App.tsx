@@ -18,13 +18,15 @@ import { SetupPage } from "./pages/setup/SetupPage";
 import { TeamPage } from "./pages/team/TeamPage";
 import { DataPage } from "./pages/data/DataPage";
 import { CommandPalette, type Command } from "./components/CommandPalette";
+import { CarePage } from "./pages/care/CarePage";
+import { SocialPage } from "./pages/social/SocialPage";
 import { Icon } from "./components/icons";
 import { applyAccent, applyThemePreference, loadThemePreference, type ThemePreference } from "./lib/theme";
 
 export type Route =
   | { name: "home" } | { name: "reception" } | { name: "worklist" } | { name: "encounter"; id: string }
   | { name: "dashboard" } | { name: "settings" } | { name: "signature" } | { name: "admin" } | { name: "account" }
-  | { name: "billing" } | { name: "finance" } | { name: "owner" } | { name: "setup" } | { name: "team" } | { name: "data" };
+  | { name: "billing" } | { name: "finance" } | { name: "owner" } | { name: "setup" } | { name: "team" } | { name: "data" } | { name: "care" } | { name: "social" };
 
 function parseRoute(): Route {
   const m = window.location.pathname.match(/^\/encounters\/([0-9a-f-]{36})$/i);
@@ -42,6 +44,8 @@ function parseRoute(): Route {
   if (window.location.pathname.startsWith("/setup")) return { name: "setup" };
   if (window.location.pathname.startsWith("/team")) return { name: "team" };
   if (window.location.pathname.startsWith("/data")) return { name: "data" };
+  if (window.location.pathname.startsWith("/care")) return { name: "care" };
+  if (window.location.pathname.startsWith("/social")) return { name: "social" };
   return { name: "home" };
 }
 
@@ -151,6 +155,8 @@ export function App() {
       : r.name === "billing" ? can("billing.invoice.write")
       : r.name === "finance" ? can("finance.read")
       : r.name === "owner" ? can("owner.reports.read")
+      : r.name === "care" ? can("care.desk") || can("care.manage") || can("care.tips.write")
+      : r.name === "social" ? can("marketing.social")
       : r.name === "setup" ? can("branding.manage")
       : r.name === "data" ? can("data.export") || can("data.export.patient") || can("backup.manage")
       : true;
@@ -159,10 +165,12 @@ export function App() {
   const navItems: { route: Route; label: string; icon: string; show: boolean; group: string; keywords?: string }[] = [
     { route: { name: "reception" }, label: t("reception"), icon: "reception", show: can("patient.search"), group: "Care", keywords: "patients register book appointment check in" },
     { route: { name: "worklist" }, label: t("worklist"), icon: "worklist", show: can("clinical.encounter.read"), group: "Care", keywords: "encounters notes today" },
+    { route: { name: "care" }, label: "Care+", icon: "heart", show: can("care.desk") || can("care.manage") || can("care.tips.write"), group: "Care", keywords: "follow up reminders telegram sms health tips messages replies" },
     { route: { name: "signature" }, label: "My signature", icon: "signature", show: can("clinical.note.sign"), group: "Care" },
     { route: { name: "billing" }, label: "Billing", icon: "cash", show: can("billing.invoice.write"), group: "Money", keywords: "invoice payment receipt cashier drawer" },
     { route: { name: "finance" }, label: "Finance", icon: "ledger", show: can("finance.read"), group: "Money", keywords: "ledger close approvals prices trial balance" },
     { route: { name: "owner" }, label: "Owner reports", icon: "report", show: can("owner.reports.read"), group: "Money", keywords: "daily digest recipients" },
+    { route: { name: "social" }, label: "Social media", icon: "megaphone", show: can("marketing.social"), group: "Insight", keywords: "facebook instagram tiktok telegram planner marketing followers" },
     { route: { name: "dashboard" }, label: "Dashboard", icon: "dashboard", show: can("analytics.read"), group: "Insight", keywords: "analytics charts insights attention" },
     { route: { name: "setup" }, label: "Clinic setup", icon: "building", show: can("branding.manage"), group: "Administration", keywords: "profile logo motto address phone licence tin stamp" },
     { route: { name: "team" }, label: "Team & roles", icon: "team", show: true, group: "Administration", keywords: "roles responsibilities permissions staff people" },
@@ -248,6 +256,8 @@ export function App() {
             {effectiveRoute.name === "worklist" && <WorklistPage onOpen={(id) => navigate({ name: "encounter", id })} />}
             {effectiveRoute.name === "encounter" && <EncounterPage id={effectiveRoute.id} session={session} onBack={() => navigate({ name: "worklist" })} />}
             {effectiveRoute.name === "dashboard" && <DashboardPage onNavigate={navigatePath} />}
+            {effectiveRoute.name === "care" && <CarePage can={can} />}
+            {effectiveRoute.name === "social" && <SocialPage />}
             {effectiveRoute.name === "setup" && <SetupPage onNavigate={navigatePath} onSettingsChanged={setFacility} />}
             {effectiveRoute.name === "team" && <TeamPage canSeeTeam={can("staff.admin")} canExport={can("data.export")} />}
             {effectiveRoute.name === "data" && <DataPage canExport={can("data.export") || can("data.export.patient")} canBackup={can("backup.manage")} canSeeHistory={can("audit.read")} />}

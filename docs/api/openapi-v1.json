@@ -215,6 +215,18 @@
         }
       }
     },
+    "/api/v1/care/telegram/webhook": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -2695,6 +2707,682 @@
         }
       }
     },
+    "/api/v1/care/patients/{id}/contact": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/patients/{id}/telegram-link": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/patients/{id}/telegram-unlink": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/messages": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/replies": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/tasks": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "open",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/tasks/{id}/complete": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/replies/phone": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneReplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/messages/{id}/simulate-reply": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateReplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/sandbox": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/templates": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/templates/{kind}/{language}": {
+      "put": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/messages/{id}/retry": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/summary": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/tips": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/tips/{id}": {
+      "put": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/tips/{id}/approve": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/tips/{id}/retire": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/campaigns": {
+      "get": {
+        "tags": [
+          "Care+"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/care/campaigns/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Care+"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/social/posts": {
+      "get": {
+        "tags": [
+          "Social media"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Social media"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/social/posts/{id}": {
+      "put": {
+        "tags": [
+          "Social media"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/social/metrics": {
+      "get": {
+        "tags": [
+          "Social media"
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Social media"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialMetricRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/social/summary": {
+      "get": {
+        "tags": [
+          "Social media"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/backups": {
       "get": {
         "tags": [
@@ -2939,6 +3627,44 @@
         },
         "additionalProperties": false
       },
+      "CampaignRequest": {
+        "required": [
+          "tipId",
+          "audience",
+          "months",
+          "scheduledAt"
+        ],
+        "type": "object",
+        "properties": {
+          "tipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "months": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scheduledAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "CashPaymentRequest": {
         "required": [
           "amount"
@@ -3004,6 +3730,21 @@
         },
         "additionalProperties": false
       },
+      "CompleteTaskRequest": {
+        "required": [
+          "outcome"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "CountSessionRequest": {
         "required": [
           "countedAmount",
@@ -3040,7 +3781,8 @@
       "CreateBackupRequest": {
         "required": [
           "passphrase",
-          "password"
+          "password",
+          "purpose"
         ],
         "type": "object",
         "properties": {
@@ -3051,6 +3793,12 @@
             ]
           },
           "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "purpose": {
             "type": [
               "null",
               "string"
@@ -3412,6 +4160,33 @@
         },
         "additionalProperties": false
       },
+      "ManualTaskRequest": {
+        "required": [
+          "patientId",
+          "summary",
+          "priority"
+        ],
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "summary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "priority": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "NoteContentV1": {
         "required": [
           "chiefComplaint",
@@ -3464,6 +4239,26 @@
           "A3",
           null
         ]
+      },
+      "PhoneReplyRequest": {
+        "required": [
+          "patientId",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "PlatformAdminRequest": {
         "required": [
@@ -4008,6 +4803,21 @@
         },
         "additionalProperties": false
       },
+      "SimulateReplyRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "SlipPaper": {
         "enum": [
           "Thermal80",
@@ -4016,6 +4826,143 @@
           "A4",
           null
         ]
+      },
+      "SocialMetricRequest": {
+        "required": [
+          "platform",
+          "measuredOn",
+          "followers",
+          "reach",
+          "engagements",
+          "inquiries",
+          "bookings"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "measuredOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "followers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "reach": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "engagements": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inquiries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "bookings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SocialPostRequest": {
+        "required": [
+          "platform",
+          "plannedAt",
+          "title",
+          "caption",
+          "status",
+          "campaign",
+          "showsPatient",
+          "patientConsentRef",
+          "publishedUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plannedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "campaign": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "showsPatient": {
+            "type": "boolean"
+          },
+          "patientConsentRef": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publishedUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "StartSubscriptionRequest": {
         "required": [
@@ -4044,6 +4991,42 @@
             "format": "date"
           },
           "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "TipRequest": {
+        "required": [
+          "title",
+          "body",
+          "topic",
+          "language"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "topic": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "language": {
             "type": [
               "null",
               "string"
@@ -4237,6 +5220,50 @@
         },
         "additionalProperties": false
       },
+      "UpdateContactRequest": {
+        "required": [
+          "smsPhone",
+          "preferredChannel",
+          "language",
+          "consentReminders",
+          "consentTips",
+          "consentMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "smsPhone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredChannel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "consentReminders": {
+            "type": "boolean"
+          },
+          "consentTips": {
+            "type": "boolean"
+          },
+          "consentMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateRoleRequest": {
         "required": [
           "name",
@@ -4329,6 +5356,25 @@
           }
         },
         "additionalProperties": false
+      },
+      "UpdateTemplateRequest": {
+        "required": [
+          "body",
+          "isEnabled"
+        ],
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isEnabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -4356,6 +5402,9 @@
     },
     {
       "name": "Insights"
+    },
+    {
+      "name": "Care+"
     },
     {
       "name": "System administration"
@@ -4389,6 +5438,9 @@
     },
     {
       "name": "Data exports"
+    },
+    {
+      "name": "Social media"
     },
     {
       "name": "Backups"

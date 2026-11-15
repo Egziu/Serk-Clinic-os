@@ -3,6 +3,7 @@
   <Folder Name="/src/backend/">
     <Project Path="src/backend/Serk.Clinic.Analytics/Serk.Clinic.Analytics.csproj" />
     <Project Path="src/backend/Serk.Clinic.Finance/Serk.Clinic.Finance.csproj" />
+    <Project Path="src/backend/Serk.Clinic.Care/Serk.Clinic.Care.csproj" />
     <Project Path="src/backend/Serk.Clinic.Clinical/Serk.Clinic.Clinical.csproj" />
     <Project Path="src/backend/Serk.Clinic.Configuration/Serk.Clinic.Configuration.csproj" />
     <Project Path="src/backend/Serk.Clinic.Documents/Serk.Clinic.Documents.csproj" />

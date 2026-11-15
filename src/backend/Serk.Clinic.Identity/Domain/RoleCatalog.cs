@@ -11,7 +11,7 @@ namespace Serk.Clinic.Identity.Domain;
 /// </summary>
 public static class RoleCatalog
 {
-    public const int Version = 4;
+    public const int Version = 5;
 
     public const string Receptionist = "Receptionist";
     public const string Nurse = "Nurse";
@@ -28,17 +28,20 @@ public static class RoleCatalog
         [
             Capabilities.PatientSearch, Capabilities.PatientRegister, Capabilities.PatientReadDemographics,
             Capabilities.AppointmentRead, Capabilities.AppointmentBook, Capabilities.AppointmentCheckIn,
+            Capabilities.CareContactWrite, Capabilities.CareDesk,
         ],
         [Nurse] =
         [
             Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.AllergyRead, Capabilities.AllergyWrite,
             Capabilities.AppointmentRead, Capabilities.AppointmentCheckIn, Capabilities.EncounterRead,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite,
         ],
         [Clinician] =
         [
             Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.AllergyRead, Capabilities.AllergyWrite,
             Capabilities.AppointmentRead, Capabilities.EncounterRead, Capabilities.NoteWrite, Capabilities.NoteSign,
             Capabilities.DocumentCreate, Capabilities.DocumentFinalize, Capabilities.DocumentRead,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.CareTipsApprove,
         ],
         [Dentist] =
         [
@@ -46,8 +49,10 @@ public static class RoleCatalog
             Capabilities.AppointmentRead, Capabilities.EncounterRead, Capabilities.NoteWrite, Capabilities.NoteSign,
             Capabilities.DocumentCreate, Capabilities.DocumentFinalize, Capabilities.DocumentRead,
             Capabilities.DentalChartRead, Capabilities.DentalChartWrite,
+            Capabilities.CareContactWrite, Capabilities.CareDesk, Capabilities.CareTipsWrite, Capabilities.CareTipsApprove,
         ],
-        [ClinicAdmin] = [Capabilities.StaffAdmin, Capabilities.AuditRead, Capabilities.AppointmentRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AnalyticsRead, Capabilities.DataExport],
+        [ClinicAdmin] = [Capabilities.StaffAdmin, Capabilities.AuditRead, Capabilities.AppointmentRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AnalyticsRead, Capabilities.DataExport,
+            Capabilities.CareManage, Capabilities.CareTipsWrite, Capabilities.SocialManage],
         // Owner: every administrative, financial, configuration and data capability of the organisation (v4). No capability
         // to read or write charts in the app. Exception, deliberately: backup.manage (Clinical sensitivity) — the owner, as
         // data controller, may take an encrypted backup that contains clinical records, with a purpose, password
@@ -58,6 +63,7 @@ public static class RoleCatalog
             Capabilities.AppointmentRead, Capabilities.FinanceRead, Capabilities.FinanceApprove, Capabilities.FinanceClose, Capabilities.FinanceConfigure,
             Capabilities.OwnerReportsRead, Capabilities.OwnerSubscriptionsManage,
             Capabilities.DataExport, Capabilities.PatientDataExport, Capabilities.BackupManage,
+            Capabilities.CareManage, Capabilities.CareTipsWrite, Capabilities.SocialManage,
         ],
         [Cashier] = [Capabilities.PatientSearch, Capabilities.PatientReadDemographics, Capabilities.InvoiceWrite, Capabilities.PaymentCollect],
         // Finance supervisor: reconciles, approves and closes; no clinical capability and cannot collect cash (separation of duties).
@@ -94,14 +100,16 @@ public static class RoleCatalog
 
     private static readonly Dictionary<string, string[]> ResponsibilityMap = new(StringComparer.Ordinal)
     {
-        [Receptionist] = ["Register patients and prevent duplicates", "Book, reschedule and check patients in", "Confirm identity at arrival", "Print appointment slips"],
+        [Receptionist] = ["Register patients and prevent duplicates", "Book, reschedule and check patients in", "Confirm identity at arrival", "Print appointment slips",
+            "Record each patient's messaging consent and contact channel", "Call back patients whose replies need attention"],
         [Nurse] = ["Record and verify allergies before treatment", "Check patients in and prepare them", "Read encounters to support the clinician"],
-        [Clinician] = ["Write and sign accurate consultation notes", "Record allergies", "Issue patient documents and correct them by addendum only", "Keep own signature image current"],
-        [Dentist] = ["Everything a clinician does", "Chart tooth findings (FDI) and correct them by new entries", "Explain treatment and costs before treatment"],
+        [Clinician] = ["Approve health tips written by colleagues", "Write and sign accurate consultation notes", "Record allergies", "Issue patient documents and correct them by addendum only", "Keep own signature image current"],
+        [Dentist] = ["Everything a clinician does", "Approve health tips written by colleagues", "Chart tooth findings (FDI) and correct them by new entries", "Explain treatment and costs before treatment"],
         [Cashier] = ["Open a drawer with a counted float", "Issue invoices from the price list and take payments", "Give a receipt for every payment", "Count cash blind at the end of the shift"],
         [FinanceSupervisor] = ["Approve discounts, refunds and cash variances (never one's own)", "Reconcile provider settlements", "Submit or approve the daily close", "Maintain the price list"],
         [ClinicAdmin] = ["Keep the clinic profile, printers and branding correct", "End staff sessions when someone leaves", "Review the audit trail", "Export operational reports"],
-        [Owner] = ["Set up the clinic profile, logo, motto and contacts", "Approve finance exceptions and lock daily closes", "Read owner reports and manage report recipients", "Take and verify encrypted backups regularly", "Decide who exports patient data and why", "Request access changes from the system administrator"],
+        [Owner] = ["Set up the clinic profile, logo, motto and contacts", "Approve finance exceptions and lock daily closes", "Read owner reports and manage report recipients", "Take and verify encrypted backups regularly", "Decide who exports patient data and why", "Request access changes from the system administrator",
+            "Set the tone of patient messages and plan health-tip campaigns", "Plan social media and review its results"],
     };
 
     /// <summary>What each built-in role is accountable for (shown in the roles and responsibilities matrix).</summary>

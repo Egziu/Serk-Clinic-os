@@ -6,7 +6,7 @@ namespace Serk.Clinic.ArchitectureTests;
 /// <summary>Automated module dependency boundary checks (inspects compiled IL, including method bodies).</summary>
 public class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Identity", "Patients", "Scheduling", "Clinical", "Documents", "Dental", "Configuration", "Analytics", "Finance"];
+    private static readonly string[] Modules = ["Identity", "Patients", "Scheduling", "Clinical", "Documents", "Dental", "Configuration", "Analytics", "Finance", "Care"];
 
     private static Assembly Module(string name) => Assembly.Load("Serk.Clinic." + name);
 

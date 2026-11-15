@@ -55,6 +55,14 @@
           "Serk.Clinic.SharedKernel": "[1.0.0, )"
         }
       },
+      "serk.clinic.care": {
+        "type": "Project",
+        "dependencies": {
+          "Serk.Clinic.Identity": "[1.0.0, )",
+          "Serk.Clinic.Platform": "[1.0.0, )",
+          "Serk.Clinic.SharedKernel": "[1.0.0, )"
+        }
+      },
       "serk.clinic.clinical": {
         "type": "Project",
         "dependencies": {

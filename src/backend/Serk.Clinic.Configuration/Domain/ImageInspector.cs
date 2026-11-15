@@ -18,12 +18,13 @@ public sealed record ImageInfo(string ContentType, int Width, int Height, byte[]
 /// </summary>
 public static class ImageInspector
 {
-    public const int MaxBytes = 512 * 1024;
+    /// <summary>20 MB: high-resolution logos and scanned stamps/signatures are accepted (owner request, 2026-11-15).</summary>
+    public const int MaxBytes = 20 * 1024 * 1024;
     public const int MinDimension = 16;
     public const int MaxDimension = 4096;
 
-    /// <summary>At most 4 megapixels (16 MiB of RGBA when decoded) to bound memory in PDF rendering.</summary>
-    public const long MaxPixels = 4L * 1024 * 1024;
+    /// <summary>At most 4096 × 4096 pixels (64 MiB of RGBA when decoded); PDF rendering is serialised, so this bounds memory.</summary>
+    public const long MaxPixels = 4096L * 4096;
 
     /// <summary>Upper bound on progressive JPEG scans (each scan costs a decoding pass).</summary>
     public const int MaxJpegScans = 32;
@@ -39,7 +40,7 @@ public static class ImageInspector
 
         if (data.Length > MaxBytes)
         {
-            return Error.Validation("file_too_large", $"Images must be at most {MaxBytes / 1024} KB.");
+            return Error.Validation("file_too_large", $"Images must be at most {MaxBytes / (1024 * 1024)} MB.");
         }
 
         Result<ImageInfo> result = data.StartsWith(PngSignature) ? InspectPng(data)
@@ -58,7 +59,7 @@ public static class ImageInspector
 
         if ((long)w * h > MaxPixels)
         {
-            return Error.Validation("bad_dimensions", "Images may have at most 4 megapixels; scale the image down (a logo rarely needs more than 1200 pixels wide).");
+            return Error.Validation("bad_dimensions", "Images may have at most 4096 × 4096 pixels; scale the image down (a logo rarely needs more than 1200 pixels wide, and smaller images keep documents light).");
         }
 
         return result;

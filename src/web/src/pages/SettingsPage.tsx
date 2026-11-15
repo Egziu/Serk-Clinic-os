@@ -196,7 +196,7 @@ export function AssetPanel({ kind, title, hint, asset, onUploaded, uploadUrl }: 
         <input ref={inputRef} id={id} type="file" accept="image/png,image/jpeg" disabled={busy} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setDone(null); }} />
         <button className="btn btn-primary" type="submit" disabled={!file || busy}><Icon name="upload" /> {busy ? "Uploading…" : `Upload ${title.toLowerCase()}`}</button>
       </form>
-      <p className="status-line">PNG (24/32-bit) or JPEG, 16–4096 px, max 512 KB. Files are checked for hidden content; uploads replace the previous image but never alter documents already issued.</p>
+      <p className="status-line">PNG (24/32-bit) or JPEG, 16–4096 px, max 20 MB. Files are checked for hidden content; uploads replace the previous image but never alter documents already issued.</p>
     </section>
   );
 }
