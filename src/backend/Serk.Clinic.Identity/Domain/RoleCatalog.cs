@@ -11,7 +11,7 @@ namespace Serk.Clinic.Identity.Domain;
 /// </summary>
 public static class RoleCatalog
 {
-    public const int Version = 5;
+    public const int Version = 6;
 
     public const string Receptionist = "Receptionist";
     public const string Nurse = "Nurse";
@@ -59,7 +59,7 @@ public static class RoleCatalog
         // confirmation and a log entry (ADR-0015). Revoke it per person where the clinic decides otherwise.
         [Owner] =
         [
-            Capabilities.AnalyticsRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AuditRead, Capabilities.StaffAdmin,
+            Capabilities.AnalyticsRead, Capabilities.BrandingManage, Capabilities.PrintersManage, Capabilities.AuditRead, Capabilities.StaffAdmin, Capabilities.StaffManage,
             Capabilities.AppointmentRead, Capabilities.FinanceRead, Capabilities.FinanceApprove, Capabilities.FinanceClose, Capabilities.FinanceConfigure,
             Capabilities.OwnerReportsRead, Capabilities.OwnerSubscriptionsManage,
             Capabilities.DataExport, Capabilities.PatientDataExport, Capabilities.BackupManage,
@@ -95,7 +95,7 @@ public static class RoleCatalog
         (Cashier, "Cashier", "Invoices, payments, receipts and own cash drawer."),
         (FinanceSupervisor, "Finance supervisor", "Approvals, reconciliation, daily close and price list. No clinical access, no cash handling."),
         (ClinicAdmin, "Clinic administrator", "Staff sessions, audit, clinic profile, printers, analytics and operational exports. No clinical access."),
-        (Owner, "Owner / management", "Full administrative control: clinic profile, finance (approve, close, prices), owner reports, staff sessions, audit, exports and encrypted backups (which contain clinical records). Cannot open charts in the app."),
+        (Owner, "Owner / management", "Full administrative control: staff and custom roles, clinic profile, finance (approve, close, prices), owner reports, staff sessions, audit, exports and encrypted backups (which contain clinical records). Cannot open charts in the app."),
     ];
 
     private static readonly Dictionary<string, string[]> ResponsibilityMap = new(StringComparer.Ordinal)
@@ -108,7 +108,7 @@ public static class RoleCatalog
         [Cashier] = ["Open a drawer with a counted float", "Issue invoices from the price list and take payments", "Give a receipt for every payment", "Count cash blind at the end of the shift"],
         [FinanceSupervisor] = ["Approve discounts, refunds and cash variances (never one's own)", "Reconcile provider settlements", "Submit or approve the daily close", "Maintain the price list"],
         [ClinicAdmin] = ["Keep the clinic profile, printers and branding correct", "End staff sessions when someone leaves", "Review the audit trail", "Export operational reports"],
-        [Owner] = ["Set up the clinic profile, logo, motto and contacts", "Approve finance exceptions and lock daily closes", "Read owner reports and manage report recipients", "Take and verify encrypted backups regularly", "Decide who exports patient data and why", "Request access changes from the system administrator",
+        [Owner] = ["Set up the clinic profile, logo, motto and contacts", "Approve finance exceptions and lock daily closes", "Read owner reports and manage report recipients", "Take and verify encrypted backups regularly", "Decide who exports patient data and why", "Add staff and give each person the right role (never change your own access)",
             "Set the tone of patient messages and plan health-tip campaigns", "Plan social media and review its results"],
     };
 

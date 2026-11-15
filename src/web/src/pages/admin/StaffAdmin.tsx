@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
+import { useAdminScope } from "./adminScope";
 import { ErrorAlert, Field } from "../../components/common";
 import { AccessEditor } from "./AccessEditor";
 import { ChangeList } from "./ChangeLog";
-import { fmtDateTime, generateTemporaryPassword, type Assignment, type Catalog, type Change, type Organisation, type StaffDetail, type StaffSummary } from "./adminTypes";
+import { fmtDateTime, generateTemporaryPassword, type Assignment, type Catalog, type Change, type Organisation, type RoleInfo, type StaffDetail, type StaffSummary } from "./adminTypes";
 
 export function StaffAdmin({ catalog, organisations, currentUserId }: { catalog: Catalog; organisations: Organisation[]; currentUserId: string }) {
+  const { base, organisationMode } = useAdminScope();
   const [q, setQ] = useState("");
   const [orgFilter, setOrgFilter] = useState("");
   const [list, setList] = useState<StaffSummary[]>([]);
@@ -17,8 +19,8 @@ export function StaffAdmin({ catalog, organisations, currentUserId }: { catalog:
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
     if (orgFilter) params.set("organisationId", orgFilter);
-    api.get<StaffSummary[]>(`/api/v1/platform/staff?${params}`).then((r) => setList(r.data)).catch(setError);
-  }, [q, orgFilter]);
+    api.get<StaffSummary[]>(`${base}/staff?${params}`).then((r) => setList(r.data)).catch(setError);
+  }, [q, orgFilter, base]);
 
   useEffect(() => {
     const t = window.setTimeout(load, 200);
@@ -36,11 +38,15 @@ export function StaffAdmin({ catalog, organisations, currentUserId }: { catalog:
         <div className="btn-row field">
           <label className="sr-only" htmlFor="staff-q">Search people</label>
           <input id="staff-q" type="search" placeholder="Search name or username" value={q} onChange={(e) => setQ(e.target.value)} />
-          <label className="sr-only" htmlFor="staff-org">Organisation</label>
-          <select id="staff-org" value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)}>
-            <option value="">All organisations</option>
-            {organisations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
+          {!organisationMode && (
+            <>
+              <label className="sr-only" htmlFor="staff-org">Organisation</label>
+              <select id="staff-org" value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)}>
+                <option value="">All organisations</option>
+                {organisations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </>
+          )}
         </div>
         <table aria-label="People">
           <thead><tr><th>Name</th><th>Status</th><th>Access</th></tr></thead>
@@ -60,7 +66,7 @@ export function StaffAdmin({ catalog, organisations, currentUserId }: { catalog:
         </table>
       </section>
       <div>
-        {creating && <CreatePerson onCreated={(id) => { setCreating(false); setSelected(id); load(); }} onCancel={() => setCreating(false)} />}
+        {creating && <CreatePerson catalog={catalog} organisations={organisations} onCreated={(id) => { setCreating(false); setSelected(id); load(); }} onCancel={() => setCreating(false)} />}
         {selected && <PersonDetail key={selected} userId={selected} catalog={catalog} organisations={organisations} isSelf={selected === currentUserId} onChanged={load} />}
         {!creating && !selected && <p className="panel muted">Select a person to manage their account and access, or create a new person.</p>}
       </div>
@@ -79,7 +85,16 @@ function AccountBadges({ s }: { s: StaffSummary }) {
   );
 }
 
-function CreatePerson({ onCreated, onCancel }: { onCreated: (id: string) => void; onCancel: () => void }) {
+function CreatePerson({ catalog, organisations, onCreated, onCancel }: { catalog: Catalog; organisations: Organisation[]; onCreated: (id: string) => void; onCancel: () => void }) {
+  const { base, organisationMode } = useAdminScope();
+  const facilities = organisations.flatMap((o) => o.facilities);
+  const [facilityId, setFacilityId] = useState(facilities[0]?.id ?? "");
+  const [roles, setRoles] = useState<string[]>([]);
+  const [customRoles, setCustomRoles] = useState<RoleInfo[]>([]);
+  const tenantId = facilities.find((f) => f.id === facilityId)?.tenantId ?? "";
+  useEffect(() => {
+    if (organisationMode && tenantId) api.get<RoleInfo[]>(`${base}/organisations/${tenantId}/roles`).then((r) => setCustomRoles(r.data.filter((x) => !x.isBuiltIn && x.isActive))).catch(() => setCustomRoles([]));
+  }, [organisationMode, base, tenantId]);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState(generateTemporaryPassword);
@@ -90,7 +105,8 @@ function CreatePerson({ onCreated, onCancel }: { onCreated: (id: string) => void
     setBusy(true);
     setError(null);
     try {
-      const r = await api.post<StaffDetail>("/api/v1/platform/staff", { username, displayName, temporaryPassword: password });
+      const body = organisationMode ? { username, displayName, temporaryPassword: password, facilityId, roles } : { username, displayName, temporaryPassword: password };
+      const r = await api.post<StaffDetail>(`${base}/staff`, body);
       onCreated(r.data.summary.id);
     } catch (err) {
       setError(err);
@@ -112,8 +128,26 @@ function CreatePerson({ onCreated, onCancel }: { onCreated: (id: string) => void
           <button type="button" className="btn" onClick={() => setPassword(generateTemporaryPassword())}>Generate</button>
         </div>
       </Field>
+      {organisationMode && (
+        <>
+          <Field id="np-facility" label="Works at">
+            <select id="np-facility" value={facilityId} onChange={(e) => setFacilityId(e.target.value)}>
+              {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+          </Field>
+          <fieldset className="consent-box">
+            <legend>Role(s)</legend>
+            {[...catalog.builtInRoles, ...customRoles].map((r) => (
+              <label key={r.code} className="check-row">
+                <input type="checkbox" checked={roles.includes(r.code)} onChange={(e) => setRoles(e.target.checked ? [...roles, r.code] : roles.filter((x) => x !== r.code))} />
+                <span><strong>{r.name}</strong> <span className="muted small">{r.description}</span></span>
+              </label>
+            ))}
+          </fieldset>
+        </>
+      )}
       <div className="btn-row">
-        <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? "Creating…" : "Create person"}</button>
+        <button className="btn btn-primary" type="submit" disabled={busy || (organisationMode && roles.length === 0)}>{busy ? "Creating…" : "Create person"}</button>
         <button className="btn" type="button" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -121,17 +155,25 @@ function CreatePerson({ onCreated, onCancel }: { onCreated: (id: string) => void
 }
 
 function PersonDetail({ userId, catalog, organisations, isSelf, onChanged }: { userId: string; catalog: Catalog; organisations: Organisation[]; isSelf: boolean; onChanged: () => void }) {
+  const { base } = useAdminScope();
   const [detail, setDetail] = useState<StaffDetail | null>(null);
   const [changes, setChanges] = useState<Change[]>([]);
+  const [roleNames, setRoleNames] = useState<Record<string, string>>({});
+  const tenantKey = [...new Set((detail?.assignments ?? []).map((a) => a.tenantId))].sort().join(",");
+  useEffect(() => {
+    if (!tenantKey) return;
+    Promise.all(tenantKey.split(",").map((t) => api.get<RoleInfo[]>(`${base}/organisations/${t}/roles`).then((r) => r.data).catch(() => [] as RoleInfo[])))
+      .then((lists) => setRoleNames(Object.fromEntries(lists.flat().filter((r) => !r.isBuiltIn).map((r) => [r.code, r.name]))));
+  }, [tenantKey, base]);
   const [editing, setEditing] = useState<Assignment | "new" | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [note, setNote] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api.get<StaffDetail>(`/api/v1/platform/staff/${userId}`).then((r) => setDetail(r.data)).catch(setError);
-    api.get<Change[]>(`/api/v1/platform/changes?targetId=${userId}&limit=30`).then((r) => setChanges(r.data)).catch(() => setChanges([]));
-  }, [userId]);
+    api.get<StaffDetail>(`${base}/staff/${userId}`).then((r) => setDetail(r.data)).catch(setError);
+    api.get<Change[]>(`${base}/changes?targetId=${userId}&limit=30`).then((r) => setChanges(r.data)).catch(() => setChanges([]));
+  }, [userId, base]);
   useEffect(load, [load]);
 
   const act = async (label: string, run: () => Promise<unknown>) => {
@@ -149,17 +191,18 @@ function PersonDetail({ userId, catalog, organisations, isSelf, onChanged }: { u
 
   if (!detail) return <section className="panel"><ErrorAlert error={error} /><p className="muted">Loading…</p></section>;
   const s = detail.summary;
+  const roleLabel = (code: string) => catalog.builtInRoles.find((b) => b.code === code)?.name ?? roleNames[code] ?? code;
 
   const toggleActive = () => {
     const reason = window.prompt(s.isActive ? `Reason for deactivating ${s.displayName}? (Their sessions end immediately. Do not include patient information.)` : `Reason for reactivating ${s.displayName}?`);
     if (reason === null) return;
-    void act(s.isActive ? "Account deactivated; sessions ended." : "Account reactivated.", () => api.post(`/api/v1/platform/staff/${userId}/active`, { isActive: !s.isActive, reason }));
+    void act(s.isActive ? "Account deactivated; sessions ended." : "Account reactivated.", () => api.post(`${base}/staff/${userId}/active`, { isActive: !s.isActive, reason }));
   };
   const resetPassword = () => {
     const pw = generateTemporaryPassword();
     if (!window.confirm(`Reset ${s.displayName}'s password? Their sessions end and they must choose a new password at next sign-in.`)) return;
     void act("Temporary password set.", async () => {
-      await api.post(`/api/v1/platform/staff/${userId}/reset-password`, { temporaryPassword: pw });
+      await api.post(`${base}/staff/${userId}/reset-password`, { temporaryPassword: pw });
       setTempPassword(pw);
     });
   };
@@ -188,8 +231,8 @@ function PersonDetail({ userId, catalog, organisations, isSelf, onChanged }: { u
         <div className="btn-row field" role="group" aria-label="Account actions">
           <button className="btn" onClick={toggleActive}>{s.isActive ? "Deactivate account" : "Reactivate account"}</button>
           <button className="btn" onClick={resetPassword}>Reset password</button>
-          {s.isLocked && <button className="btn" onClick={() => act("Account unlocked.", () => api.post(`/api/v1/platform/staff/${userId}/unlock`))}>Unlock</button>}
-          <button className="btn" onClick={() => act("All sessions ended.", () => api.post(`/api/v1/platform/staff/${userId}/revoke-sessions`))} disabled={detail.activeSessions === 0}>End all sessions</button>
+          {s.isLocked && <button className="btn" onClick={() => act("Account unlocked.", () => api.post(`${base}/staff/${userId}/unlock`))}>Unlock</button>}
+          <button className="btn" onClick={() => act("All sessions ended.", () => api.post(`${base}/staff/${userId}/revoke-sessions`))} disabled={detail.activeSessions === 0}>End all sessions</button>
         </div>
       )}
 
@@ -202,7 +245,7 @@ function PersonDetail({ userId, catalog, organisations, isSelf, onChanged }: { u
             <tr key={a.id}>
               <td>{a.facilityName}<br /><span className="hint">{a.tenantName}</span></td>
               <td>
-                {a.roles.map((r) => catalog.builtInRoles.find((b) => b.code === r)?.name ?? r).join(", ")}
+                {a.roles.map(roleLabel).join(", ")}
                 {a.grantedCapabilities.length > 0 && <><br /><span className="hint">+ {a.grantedCapabilities.join(", ")}</span></>}
                 {a.revokedCapabilities.length > 0 && <><br /><span className="hint">− {a.revokedCapabilities.join(", ")}</span></>}
                 <br /><span className="hint">{a.effectiveCapabilities.length} effective permissions</span>
@@ -249,6 +292,7 @@ function PractitionerForm({ userId, organisations, profiles, onSaved }: { userId
 }
 
 function PractitionerFields({ userId, tenantId, profile, onSaved }: { userId: string; tenantId: string; profile: StaffDetail["practitionerProfiles"][number] | undefined; onSaved: () => void }) {
+  const { base } = useAdminScope();
   const [title, setTitle] = useState(profile?.professionalTitle ?? "");
   const [specialty, setSpecialty] = useState(profile?.specialty ?? "");
   const [license, setLicense] = useState(profile?.licenseNumber ?? "");
@@ -259,7 +303,7 @@ function PractitionerFields({ userId, tenantId, profile, onSaved }: { userId: st
     e.preventDefault();
     setError(null);
     try {
-      await api.put(`/api/v1/platform/staff/${userId}/practitioner`, { tenantId, professionalTitle: title, specialty, licenseNumber: license, licenseExpiresOn: expires || null });
+      await api.put(`${base}/staff/${userId}/practitioner`, { tenantId, professionalTitle: title, specialty, licenseNumber: license, licenseExpiresOn: expires || null });
       onSaved();
     } catch (err) {
       setError(err);

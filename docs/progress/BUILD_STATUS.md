@@ -67,6 +67,12 @@ Care+ and social media (2026-11-15, ADR-0016): per-purpose messaging consent wit
   Channels: SANDBOX ONLY (Telegram connector built but off; no SMS gateway) — real sending NOT RUN, needs owner approval.
   Review round 5: 4 High + 5 Medium fixed with tests, 1 Medium partly (clinical word-list review), 1 Medium open (image
   downscaling). Amharic/Tigrinya texts need native and clinical review (HAZ-039..042 pending).
+Owner staff & roles (2026-11-15, ADR-0017): owners add staff, assign built-in or custom roles, fine-tune permissions,
+  reset passwords and deactivate accounts for their own organisation (Team & roles → Manage people / Custom roles).
+  Whole-system check: verify.sh PASS (197 unit, 26 architecture, 132 integration, 21 web), Playwright 23/23, restore
+  rehearsal PASS; 83/104 release-blocking scenarios PASS. Verdict in docs/progress/READINESS_ASSESSMENT.md: GREEN for demo
+  and supervised synthetic pilot, RED for real patients (clinical/legal/security approvals, MFA, production backups,
+  Amharic/Tigrinya UI, treatment plans and prescriptions outstanding).
 Known blockers / risks (ranked):
   0. Super-admin two-person rule not implemented (ACCESS-014, review round 3 F1)
   1. No OIDC/MFA (IDENT-001)  2. No backup/restore/key recovery (OPS-003)  3. Clinical content unreviewed

@@ -34,3 +34,5 @@ CI workflow `.github/workflows/ci.yml` observed passing on GitHub (run #2).
 | 2026-11-15 | care+ commit | tools/verify.sh incl. CareTests (CARE-001..006, SOCIAL-001), UPLOAD-001 | 197 unit + 26 architecture + 129 integration passed, 0 failed | `docs/evidence/care/verify-20261115T031707Z.log` |
 | 2026-11-15 | same | Playwright E2E incl. care.spec.ts (consent + Telegram code, tip four-eyes, campaign, templates, social planner and results) | 22/22 passed; axe 0 serious/critical | `docs/evidence/care/e2e-20261115T031707Z.log`, screenshots 16-18 |
 | 2026-11-15 | same | Real Telegram/SMS delivery | NOT RUN (sandbox only; needs owner approval, bot token, SMS gateway) | — |
+| 2026-11-15 | owner staff & whole-system check | verify.sh, full Playwright suite, restore rehearsal | 197 unit + 26 architecture + 132 integration + 21 web PASS; E2E 23/23; rehearsal PASS (57 tables) | `docs/evidence/system-check/` |
+| 2026-11-15 | same | Mutation check: shared-account guard disabled | ORGADMIN-003 failed on mutant, passed restored | session log |

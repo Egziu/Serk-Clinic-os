@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
+import { useAdminScope } from "./adminScope";
 import { ErrorAlert, Field } from "../../components/common";
 import { SENSITIVITY_LABEL, sensitivityClass, type Catalog, type Organisation, type RoleInfo } from "./adminTypes";
 
 export function RolesAdmin({ catalog, organisations }: { catalog: Catalog; organisations: Organisation[] }) {
+  const { base } = useAdminScope();
   const [tenantId, setTenantId] = useState(organisations[0]?.id ?? "");
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [editing, setEditing] = useState<{ base: RoleInfo | null; existing: RoleInfo | null } | null>(null);
   const [error, setError] = useState<unknown>(null);
   const load = useCallback(() => {
-    if (tenantId) api.get<RoleInfo[]>(`/api/v1/platform/organisations/${tenantId}/roles`).then((r) => setRoles(r.data)).catch(setError);
-  }, [tenantId]);
+    if (tenantId) api.get<RoleInfo[]>(`${base}/organisations/${tenantId}/roles`).then((r) => setRoles(r.data)).catch(setError);
+  }, [tenantId, base]);
   useEffect(load, [load]);
 
   return (
@@ -66,6 +68,7 @@ function RiskSummary({ catalog, codes }: { catalog: Catalog; codes: string[] }) 
 function RoleEditor({ tenantId, catalog, base, existing, onSaved, onCancel }: {
   tenantId: string; catalog: Catalog; base: RoleInfo | null; existing: RoleInfo | null; onSaved: () => void; onCancel: () => void;
 }) {
+  const { base: apiBase } = useAdminScope();
   const [name, setName] = useState(existing?.name ?? (base ? `${base.name} (custom)` : ""));
   const [description, setDescription] = useState(existing?.description ?? base?.description ?? "");
   const [caps, setCaps] = useState<string[]>(existing?.capabilities ?? base?.capabilities ?? []);
@@ -80,8 +83,8 @@ function RoleEditor({ tenantId, catalog, base, existing, onSaved, onCancel }: {
     e.preventDefault();
     setError(null);
     try {
-      if (existing) await api.put(`/api/v1/platform/roles/${existing.id}`, { name, description, capabilities: caps, isActive, version: existing.version });
-      else await api.post("/api/v1/platform/roles", { tenantId, name, description, capabilities: caps });
+      if (existing) await api.put(`${apiBase}/roles/${existing.id}`, { name, description, capabilities: caps, isActive, version: existing.version });
+      else await api.post(`${apiBase}/roles`, { tenantId, name, description, capabilities: caps });
       onSaved();
     } catch (err) {
       setError(err);

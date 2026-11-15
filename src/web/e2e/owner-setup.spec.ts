@@ -45,11 +45,12 @@ test.describe.serial("Owner: setup, roles, exports, backups, insights", () => {
     await login(page, "owner.a");
     await page.getByRole("button", { name: "Team & roles" }).click();
     await expect(page.getByRole("heading", { name: "Team & roles" })).toBeVisible();
+    await page.getByRole("tab", { name: "Roles & responsibilities" }).click();
     await expect(page.getByRole("article").filter({ hasText: "Owner / management" })).toContainText("Take and verify encrypted backups");
     await page.getByRole("tab", { name: "Permission matrix" }).click();
     await expect(page.getByRole("region", { name: "Permission matrix" }).getByRole("columnheader", { name: "Cashier" })).toBeVisible();
-    await page.getByRole("tab", { name: "Team" }).click();
-    await expect(page.getByRole("cell", { name: /reception\.a/ })).toBeVisible();
+    await page.getByRole("tab", { name: "Manage people" }).click();
+    await expect(page.getByRole("table", { name: "People" })).toContainText("reception.a");
     await expectNoSeriousA11yViolations(page, "team-roles");
     await page.screenshot({ path: `${SHOTS}/14-team-roles.png`, fullPage: true });
   });

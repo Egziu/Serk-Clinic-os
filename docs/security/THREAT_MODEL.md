@@ -77,6 +77,14 @@ PDFs and their hashes; audit trail; staff credentials and sessions; tenant bound
 | Mass messaging abuse | Campaign spam | care.manage only; approved tips only; consent-filtered audience; quiet hours | CARE-004 | No per-campaign size cap yet |
 | Patient images on social media | Post with patient photo without consent | DB CHECK requires media-consent reference when a post shows a patient | SOCIAL-001 | Reference is not verified against a document |
 
+## Delegated organisation administration (added 2026-11-15, ADR-0017)
+
+| Threat | Example | Controls implemented | Evidence | Residual / open |
+|---|---|---|---|---|
+| Owner escalates own access | Owner adds Dentist role to self | Self-modification refused (service + underlying admin service) | ORGADMIN-003 | Owner can create a second account with clinical access (audited; ACCESS-014 open) |
+| Cross-organisation changes | Owner edits a person who also works elsewhere | Only people whose every assignment is in the organisation; others 403/404; other organisations' assignments hidden | ORGADMIN-003 (mutation-checked) | — |
+| Super admin takeover | Owner resets a super admin's password | Super administrators excluded | code | — |
+
 ## Attackers considered
 Internet users (anonymous verify endpoint, login), curious insiders (search, duplicate probe — now audited), rogue tenant
 (tenant B staff), compromised workstation (session revocation), malicious tools/plugins (no PHI to tools; synthetic data

@@ -56,6 +56,7 @@ public static class CapabilityCatalog
         new(Capabilities.FinanceConfigure, "Finance", "Configure prices", "Maintain the service and price list.", CapabilitySensitivity.Administrative),
         new(Capabilities.OwnerReportsRead, "Owner", "Read owner reports", "Locked daily close reports (aggregates only, no patient data).", CapabilitySensitivity.Standard),
         new(Capabilities.OwnerSubscriptionsManage, "Owner", "Manage report recipients", "Bind or revoke owner digest recipients.", CapabilitySensitivity.Administrative),
+        new(Capabilities.StaffManage, "Administration", "Manage staff and roles", "Add staff, assign and customise roles and permissions, reset passwords and deactivate accounts — only within this organisation, never one's own access.", CapabilitySensitivity.Administrative),
         new(Capabilities.StaffAdmin, "Administration", "Manage staff sessions", "Revoke staff sessions within the organisation.", CapabilitySensitivity.Administrative),
         new(Capabilities.AuditRead, "Administration", "Read audit trail", "Read the organisation's audit records.", CapabilitySensitivity.Administrative),
         new(Capabilities.DataExport, "Data", "Export operational data", "Download finance, schedule-capacity, staff and audit data as CSV or JSON (every export is logged).", CapabilitySensitivity.Administrative),

@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { api, postForFile, saveFile } from "../../api/client";
 import { ErrorAlert } from "../../components/common";
 import { Icon } from "../../components/icons";
+import { AdminScopeContext } from "../admin/adminScope";
+import { StaffAdmin } from "../admin/StaffAdmin";
+import { RolesAdmin } from "../admin/RolesAdmin";
+import type { Catalog, Organisation } from "../admin/adminTypes";
 
 interface Capability { code: string; group: string; label: string; description: string; sensitivity: string }
 interface MatrixRole { code: string; name: string; description: string; builtIn: boolean; responsibilities: string[]; capabilities: string[]; people: number }
@@ -12,8 +16,12 @@ interface Member { userId: string; username: string; displayName: string; accoun
 const sensitivityBadge: Record<string, string> = { Clinical: "badge-danger", PatientData: "badge-warning", Administrative: "badge-info", Standard: "badge-neutral" };
 const sensitivityLabel: Record<string, string> = { Clinical: "Clinical", PatientData: "Patient data", Administrative: "Administrative", Standard: "Standard" };
 
-export function TeamPage({ canSeeTeam, canExport }: { canSeeTeam: boolean; canExport: boolean }) {
-  const [tab, setTab] = useState<"roles" | "matrix" | "team">("roles");
+const ORG_SCOPE = { base: "/api/v1/organisation/admin", organisationMode: true };
+
+export function TeamPage({ canSeeTeam, canExport, canManage, currentUserId }: { canSeeTeam: boolean; canExport: boolean; canManage: boolean; currentUserId: string }) {
+  const [tab, setTab] = useState<"roles" | "matrix" | "team" | "manage" | "custom">(canManage ? "manage" : "roles");
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [organisations, setOrganisations] = useState<Organisation[]>([]);
   const [matrix, setMatrix] = useState<Matrix | null>(null);
   const [team, setTeam] = useState<Member[] | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -21,14 +29,22 @@ export function TeamPage({ canSeeTeam, canExport }: { canSeeTeam: boolean; canEx
   useEffect(() => {
     api.get<Matrix>("/api/v1/organisation/roles").then((r) => setMatrix(r.data)).catch(setError);
     if (canSeeTeam) api.get<Member[]>("/api/v1/organisation/team").then((r) => setTeam(r.data)).catch(setError);
-  }, [canSeeTeam]);
+    if (canManage) {
+      api.get<Catalog>(`${ORG_SCOPE.base}/catalog`).then((r) => setCatalog(r.data)).catch(setError);
+      api.get<Organisation[]>(`${ORG_SCOPE.base}/organisations`).then((r) => setOrganisations(r.data)).catch(setError);
+    }
+  }, [canSeeTeam, canManage]);
 
   const exportTeam = async () => {
     try { saveFile(await postForFile("/api/v1/exports/staff.access", { format: "csv" })); } catch (e) { setError(e); }
   };
 
-  type Tab = "roles" | "matrix" | "team";
-  const tabs: [Tab, string][] = [["roles", "Roles & responsibilities"], ["matrix", "Permission matrix"], ...(canSeeTeam ? [["team", "Team"] as [Tab, string]] : [])];
+  type Tab = "roles" | "matrix" | "team" | "manage" | "custom";
+  const tabs: [Tab, string][] = [
+    ...(canManage ? [["manage", "Manage people"], ["custom", "Custom roles"]] as [Tab, string][] : []),
+    ["roles", "Roles & responsibilities"], ["matrix", "Permission matrix"],
+    ...(canSeeTeam && !canManage ? [["team", "Team"] as [Tab, string]] : []),
+  ];
   return (
     <>
       <div className="page-header">
@@ -45,11 +61,19 @@ export function TeamPage({ canSeeTeam, canExport }: { canSeeTeam: boolean; canEx
         ))}
       </div>
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        <AdminScopeContext.Provider value={ORG_SCOPE}>
+          {tab === "manage" && catalog && organisations.length > 0 && <StaffAdmin catalog={catalog} organisations={organisations} currentUserId={currentUserId} />}
+          {tab === "custom" && catalog && organisations.length > 0 && <RolesAdmin catalog={catalog} organisations={organisations} />}
+        </AdminScopeContext.Provider>
         {tab === "roles" && matrix && <RoleCards matrix={matrix} />}
         {tab === "matrix" && matrix && <PermissionMatrix matrix={matrix} />}
         {tab === "team" && team && matrix && <TeamList team={team} matrix={matrix} />}
       </div>
-      <p className="muted">Changes to who has which role are made by a system super administrator and recorded in the change log.</p>
+      <p className="muted">
+        {canManage
+          ? "Every change is recorded in the change log. You cannot change your own access; people who also work for another organisation are changed by the system administrator."
+          : "Changes to who has which role are made by the clinic owner or a system administrator and recorded in the change log."}
+      </p>
     </>
   );
 }

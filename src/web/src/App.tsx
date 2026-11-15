@@ -259,7 +259,7 @@ export function App() {
             {effectiveRoute.name === "care" && <CarePage can={can} />}
             {effectiveRoute.name === "social" && <SocialPage />}
             {effectiveRoute.name === "setup" && <SetupPage onNavigate={navigatePath} onSettingsChanged={setFacility} />}
-            {effectiveRoute.name === "team" && <TeamPage canSeeTeam={can("staff.admin")} canExport={can("data.export")} />}
+            {effectiveRoute.name === "team" && <TeamPage canSeeTeam={can("staff.admin")} canExport={can("data.export")} canManage={can("staff.manage")} currentUserId={session.userId} />}
             {effectiveRoute.name === "data" && <DataPage canExport={can("data.export") || can("data.export.patient")} canBackup={can("backup.manage")} canSeeHistory={can("audit.read")} />}
             {effectiveRoute.name === "settings" && <SettingsPage canBrand={can("branding.manage")} canPrinters={can("printers.manage")} onSettingsChanged={setFacility} />}
             {effectiveRoute.name === "signature" && <SignaturePage />}

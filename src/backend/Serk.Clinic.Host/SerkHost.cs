@@ -267,6 +267,7 @@ public static class SerkHost
 
         app.MapIdentityEndpoints();
         app.MapPlatformAdminEndpoints();
+        app.MapOrganisationAdminEndpoints();
         app.MapPatientEndpoints();
         app.MapAppointmentEndpoints();
         app.MapEncounterEndpoints();

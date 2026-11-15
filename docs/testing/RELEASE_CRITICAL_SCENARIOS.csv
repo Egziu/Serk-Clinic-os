@@ -37,7 +37,7 @@ OPS-002,Operations,Upgrade with preserved records,Yes,Migration rehearsal on pre
 OPS-003,Operations,Encrypted DB+object+key restore,Yes,Restore drill report,NOT RUN,
 OPS-004,Operations,Worker restart / retry / dead-letter,Yes,Integration,PASS (automated; no process-kill test),PlatformReliabilityTests (3 outbox tests)
 OPS-005,Operations,Clinic LAN during WAN outage,Yes,—,NOT RUN,
-SEC-001,Security,Upload polyglot/malware,Yes,—,NOT APPLICABLE YET (no uploads),
+SEC-001,Security,Upload polyglot/malware,Yes,—,PARTIAL (image uploads strictly parsed and re-encoded; backup files decrypted/inspected with size limits; no antivirus scan),ImageInspector tests; BackupArchiveTests
 SEC-002,Security,IDOR/BOLA,Yes,Integration,PASS (automated) for implemented endpoints,TenantIsolationTests; ReviewRound1RegressionTests.Idempotency_replay_bound_to_actor
 SEC-003,Security,Role elevation blocked,Yes,Integration,PASS (automated),Unauthorized_sign_refused; Clinic_admin_cannot_read_charts; Unknown_json_members_rejected
 SEC-004,Security,Redacted logs,Yes,Integration,PASS (automated; single synthetic marker scenario),PlatformReliabilityTests.Logs_do_not_contain_phi
@@ -107,3 +107,7 @@ CARE-004,Care+,Health tips need another clinician's approval; approved text immu
 CARE-005,Care+,Telegram webhook closed unless configured; templates reject clinical placeholders; templates restricted to managers,Yes,Integration,PASS (automated),CareTests CARE-005
 CARE-006,Care+,Real Telegram/SMS delivery to a phone,Yes,Manual + provider evidence,NOT RUN (sandbox only; owner approval and credentials required),docs/operations/CARE_MESSAGING.md
 SOCIAL-001,Care+,Social posts showing patients need consent reference; results tracked with engagement; permissions,No,Integration + E2E,PASS (automated),CareTests SOCIAL-001; e2e/care.spec.ts
+ORGADMIN-001,Identity,Owner adds staff with facility and role; temporary password forces change; change log carries organisation,Yes,Integration + E2E,PASS (automated),OrganisationAdminTests ORGADMIN-001; e2e/owner-staff.spec.ts
+ORGADMIN-002,Identity,Owner customises roles in own organisation only; per-person overrides; risk preview,Yes,Integration + E2E,PASS (automated),OrganisationAdminTests ORGADMIN-002
+ORGADMIN-003,Identity,Owner cannot change own access, other organisations, shared accounts or super admins; other roles refused,Yes,Integration,PASS (automated; mutation-checked),OrganisationAdminTests ORGADMIN-003
+I18N-001,Web,Interface fully available in Amharic and Tigrinya,Yes,Manual review by native speakers,NOT IMPLEMENTED (architecture only; UI text English),docs/progress/READINESS_ASSESSMENT.md

@@ -122,7 +122,21 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
     private static readonly PasswordHasher<StaffUserRow> Hasher = new();
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    private Guid ActorId => request.PlatformAdminUserId ?? throw new InvalidOperationException("Platform administrator required.");
+    private Guid? _organisationActor;
+
+    private Guid ActorId => _organisationActor ?? request.PlatformAdminUserId ?? throw new InvalidOperationException("Platform administrator required.");
+
+    /// <summary>
+    /// Used only by <see cref="OrganisationAdminService"/> after it has verified the caller holds <c>staff.manage</c> and that
+    /// the target belongs to the caller's own organisation: changes are recorded under the organisation administrator.
+    /// </summary>
+    internal void ActAsOrganisationAdministrator(Guid userId, Guid tenantId)
+    {
+        _organisationActor = userId;
+        _organisationTenant = tenantId;
+    }
+
+    private Guid? _organisationTenant;
 
     // ---------- overview & catalog ----------
     public async Task<PlatformOverviewDto> OverviewAsync(CancellationToken ct)
@@ -327,7 +341,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             CreatedAt = clock.GetUtcNow(),
         };
         db.StaffUsers.Add(user);
-        Log("staff.create", "staff_user", user.Id, null, null, new { user.Username, user.DisplayName, mustChangePassword = true });
+        Log("staff.create", "staff_user", user.Id, _organisationTenant, null, new { user.Username, user.DisplayName, mustChangePassword = true });
         await db.SaveChangesAsync(ct);
         return await GetStaffAsync(user.Id, ct);
     }
@@ -352,7 +366,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return Invalid("invalid_display_name", "Display name must be 1–200 characters.", "displayName");
         }
 
-        Log("staff.rename", "staff_user", userId, null, new { user.DisplayName }, new { DisplayName = displayName });
+        Log("staff.rename", "staff_user", userId, _organisationTenant, new { user.DisplayName }, new { DisplayName = displayName });
         user.DisplayName = displayName;
         await db.SaveChangesAsync(ct);
         return true;
@@ -385,7 +399,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return true;
         }
 
-        Log(body.IsActive ? "staff.activate" : "staff.deactivate", "staff_user", userId, null, new { user.IsActive }, new { body.IsActive }, body.Reason);
+        Log(body.IsActive ? "staff.activate" : "staff.deactivate", "staff_user", userId, _organisationTenant, new { user.IsActive }, new { body.IsActive }, body.Reason);
         user.IsActive = body.IsActive;
         if (!body.IsActive)
         {
@@ -420,7 +434,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
             return Error.NotFound();
         }
 
-        Log("staff.unlock", "staff_user", userId, null, new { user.FailedLoginCount, user.LockedUntil }, new { FailedLoginCount = 0 });
+        Log("staff.unlock", "staff_user", userId, _organisationTenant, new { user.FailedLoginCount, user.LockedUntil }, new { FailedLoginCount = 0 });
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         await db.SaveChangesAsync(ct);
@@ -453,7 +467,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         await RevokeSessionsAsync(userId, "password_reset", ct);
-        Log("staff.password_reset", "staff_user", userId, null, null, new { mustChangePassword = true });
+        Log("staff.password_reset", "staff_user", userId, _organisationTenant, null, new { mustChangePassword = true });
         await db.SaveChangesAsync(ct);
         await SecurityEventAsync("staff.password_reset", userId, ct);
         return true;
@@ -467,7 +481,7 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
         }
 
         var count = await RevokeSessionsAsync(userId, "super_admin_revoked", ct);
-        Log("staff.sessions_revoked", "staff_user", userId, null, null, new { revoked = count });
+        Log("staff.sessions_revoked", "staff_user", userId, _organisationTenant, null, new { revoked = count });
         await db.SaveChangesAsync(ct);
         return count;
     }
@@ -859,9 +873,14 @@ public sealed class PlatformAdminService(IdentityDbContext db, AuthService auth,
     }
 
     // ---------- change log ----------
-    public async Task<IReadOnlyList<AdminChangeDto>> ChangesAsync(Guid? targetId, DateTimeOffset? before, int limit, CancellationToken ct)
+    public async Task<IReadOnlyList<AdminChangeDto>> ChangesAsync(Guid? targetId, DateTimeOffset? before, int limit, CancellationToken ct, Guid? tenantId = null)
     {
         var query = db.AdminChanges.AsNoTracking();
+        if (tenantId is { } tenant)
+        {
+            query = query.Where(c => c.TenantId == tenant);
+        }
+
         if (targetId is { } t)
         {
             query = query.Where(c => c.TargetId == t);

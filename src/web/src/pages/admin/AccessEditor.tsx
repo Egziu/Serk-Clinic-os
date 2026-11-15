@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
+import { useAdminScope } from "./adminScope";
 import { ErrorAlert, Field } from "../../components/common";
 import { SENSITIVITY_LABEL, sensitivityClass, type Assignment, type Catalog, type Organisation, type Preview, type RoleInfo } from "./adminTypes";
 
@@ -17,6 +18,7 @@ export function AccessEditor({ userId, catalog, organisations, existing, onSaved
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const { base } = useAdminScope();
   const facilities = organisations.flatMap((o) => o.facilities.map((f) => ({ ...f, tenantName: o.name })));
   const [facilityId, setFacilityId] = useState(existing?.facilityId ?? facilities[0]?.id ?? "");
   const tenantId = facilities.find((f) => f.id === facilityId)?.tenantId ?? "";
@@ -38,10 +40,10 @@ export function AccessEditor({ userId, catalog, organisations, existing, onSaved
 
   useEffect(() => {
     if (!tenantId) return;
-    api.get<RoleInfo[]>(`/api/v1/platform/organisations/${tenantId}/roles`)
+    api.get<RoleInfo[]>(`${base}/organisations/${tenantId}/roles`)
       .then((r) => setCustomRoles(r.data.filter((x) => !x.isBuiltIn && x.isActive)))
       .catch(setError);
-  }, [tenantId]);
+  }, [tenantId, base]);
 
   const granted = useMemo(() => Object.keys(overrides).filter((c) => overrides[c] === "grant").sort(), [overrides]);
   const revoked = useMemo(() => Object.keys(overrides).filter((c) => overrides[c] === "revoke").sort(), [overrides]);
@@ -50,12 +52,12 @@ export function AccessEditor({ userId, catalog, organisations, existing, onSaved
   useEffect(() => {
     if (!tenantId) return;
     const timer = window.setTimeout(() => {
-      api.post<Preview>("/api/v1/platform/access-preview", { tenantId, userId, roles, grantedCapabilities: granted, revokedCapabilities: revoked })
+      api.post<Preview>(`${base}/access-preview`, { tenantId, userId, roles, grantedCapabilities: granted, revokedCapabilities: revoked })
         .then((r) => setPreview(r.data))
         .catch(() => setPreview(null));
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [tenantId, userId, roles, granted, revoked]);
+  }, [tenantId, userId, roles, granted, revoked, base]);
 
   const allRoles = [...catalog.builtInRoles, ...customRoles];
   const fromRoles = new Set(allRoles.filter((r) => roles.includes(r.code)).flatMap((r) => r.capabilities));
@@ -79,8 +81,8 @@ export function AccessEditor({ userId, catalog, organisations, existing, onSaved
       reason: reason || null,
     };
     try {
-      if (existing) await api.put(`/api/v1/platform/assignments/${existing.id}`, body);
-      else await api.post(`/api/v1/platform/staff/${userId}/assignments`, body);
+      if (existing) await api.put(`${base}/assignments/${existing.id}`, body);
+      else await api.post(`${base}/staff/${userId}/assignments`, body);
       onSaved();
     } catch (err) {
       setError(err);

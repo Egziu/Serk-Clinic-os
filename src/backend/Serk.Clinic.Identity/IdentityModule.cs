@@ -17,6 +17,7 @@ public static class IdentityModule
         services.AddScoped<AuthService>();
         services.AddScoped<PlatformAdminService>();
         services.AddScoped<OrganisationService>();
+        services.AddScoped<OrganisationAdminService>();
         services.AddScoped<IStaffDirectory, StaffDirectory>();
         services.AddScoped<Serk.Clinic.Platform.Export.IStepUpVerifier, StepUpVerifier>();
         services.AddScoped<Serk.Clinic.Platform.Export.IFacilityTimeZones, FacilityTimeZones>();
